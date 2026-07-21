@@ -1,0 +1,113 @@
+name: request-central-dev
+
+on:
+  workflow_call:
+    outputs:
+      release_id:
+        description: Release autorizada pela Central de Ativações
+        value: ${{ jobs.request.outputs.release_id }}
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: oon-request-dev-${{ github.repository }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  request:
+    name: Solicitar publicação em Dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      release_id: ${{ steps.request.outputs.release_id }}
+
+    steps:
+      - name: Checkout da Central chamadora
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+          show-progress: false
+
+      - name: Validar contrato de publicação
+        id: manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f oon.deploy.json || {
+            echo "oon.deploy.json não encontrado na raiz do repositório." >&2
+            exit 1
+          }
+
+          app_code="$(jq -er '.appCode | strings | select(length > 0)' oon.deploy.json)"
+          schema_version="$(jq -er '.schemaVersion | strings | select(length > 0)' oon.deploy.json)"
+
+          [[ "$app_code" =~ ^[a-z0-9][a-z0-9-]{0,49}$ ]] || {
+            echo "appCode inválido no oon.deploy.json: $app_code" >&2
+            exit 1
+          }
+
+          echo "app_code=$app_code" >> "$GITHUB_OUTPUT"
+          echo "schema_version=$schema_version" >> "$GITHUB_OUTPUT"
+
+      - name: Solicitar autorização à Central de Ativações
+        id: request
+        shell: bash
+        env:
+          APP_CODE: ${{ steps.manifest.outputs.app_code }}
+          ACTIVATION_API_URL: https://central-ativacao.central.oondemand.online/api
+        run: |
+          set -euo pipefail
+
+          audience_encoded="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$ACTIVATION_API_URL")"
+          oidc_response="$RUNNER_TEMP/oon-oidc.json"
+          api_response="$RUNNER_TEMP/oon-publication.json"
+
+          curl --fail --silent --show-error \
+            --header "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${audience_encoded}" \
+            --output "$oidc_response"
+
+          oidc_token="$(jq -er '.value | strings | select(length > 0)' "$oidc_response")"
+          echo "::add-mask::$oidc_token"
+
+          payload="$(jq -nc --arg appCode "$APP_CODE" '{appCode: $appCode}')"
+          status="$({ curl --silent --show-error \
+            --output "$api_response" \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header "Authorization: Bearer $oidc_token" \
+            --header 'Content-Type: application/json' \
+            --data "$payload" \
+            "$ACTIVATION_API_URL/integracao/publicacoes/solicitar"; } || true)"
+
+          if [[ ! "$status" =~ ^2[0-9][0-9]$ ]]; then
+            message="$(jq -r '.error.message // .message // "Falha não detalhada pela API."' "$api_response" 2>/dev/null || true)"
+            echo "Solicitação rejeitada pela Central de Ativações (HTTP ${status:-sem resposta}): $message" >&2
+            exit 1
+          fi
+
+          release_id="$(jq -er '.releaseId | strings | select(length > 0)' "$api_response")"
+          stage="$(jq -r '.etapa // "autorizada"' "$api_response")"
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Publicação Dev solicitada"
+            echo
+            echo "- App: \`$APP_CODE\`"
+            echo "- Release: \`$release_id\`"
+            echo "- Etapa: \`$stage\`"
+            echo "- Repositório: \`$GITHUB_REPOSITORY\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remover respostas temporárias
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/oon-oidc.json" "$RUNNER_TEMP/oon-publication.json"
