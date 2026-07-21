@@ -95,6 +95,14 @@ jobs:
 
           release_id="$(jq -er '.releaseId | strings | select(length > 0)' "$api_response")"
           stage="$(jq -r '.etapa // "autorizada"' "$api_response")"
+          retried="$(jq -r '.reprocessada // false' "$api_response")"
+
+          if [[ "$stage" == falha_* || "$stage" == "cancelada" ]]; then
+            message="$(jq -r '.error.message // .message // "A release permaneceu em estado de falha."' "$api_response" 2>/dev/null || true)"
+            echo "A Central de Ativações devolveu HTTP $status, mas a release $release_id está em '$stage': $message" >&2
+            exit 1
+          fi
+
           echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
 
           {
@@ -103,6 +111,7 @@ jobs:
             echo "- App: \`$APP_CODE\`"
             echo "- Release: \`$release_id\`"
             echo "- Etapa: \`$stage\`"
+            echo "- Reprocessada: \`$retried\`"
             echo "- Repositório: \`$GITHUB_REPOSITORY\`"
             echo "- Commit: \`$GITHUB_SHA\`"
           } >> "$GITHUB_STEP_SUMMARY"
