@@ -54,6 +54,7 @@ jobs:
           }
 
           architecture='{}'
+          capabilities="$(jq -ce '.capabilities // {} | if type == "object" then . else error("capabilities deve ser um objeto") end' oon.deploy.json)"
           if [[ -f central.app.json ]]; then
             architecture="$(jq -ce '{
               tenancyModel,
@@ -67,6 +68,7 @@ jobs:
           echo "app_code=$app_code" >> "$GITHUB_OUTPUT"
           echo "schema_version=$schema_version" >> "$GITHUB_OUTPUT"
           echo "architecture=$architecture" >> "$GITHUB_OUTPUT"
+          echo "capabilities=$capabilities" >> "$GITHUB_OUTPUT"
 
       - name: Solicitar autorização à Central de Ativações
         id: request
@@ -74,6 +76,7 @@ jobs:
         env:
           APP_CODE: ${{ steps.manifest.outputs.app_code }}
           APP_ARCHITECTURE: ${{ steps.manifest.outputs.architecture }}
+          APP_CAPABILITIES: ${{ steps.manifest.outputs.capabilities }}
           ACTIVATION_API_URL: https://central-ativacao.central.oondemand.online/api
         run: |
           set -euo pipefail
@@ -90,7 +93,7 @@ jobs:
           oidc_token="$(jq -er '.value | strings | select(length > 0)' "$oidc_response")"
           echo "::add-mask::$oidc_token"
 
-          payload="$(jq -nc --arg appCode "$APP_CODE" --argjson architecture "$APP_ARCHITECTURE" '{appCode: $appCode, architecture: $architecture}')"
+          payload="$(jq -nc --arg appCode "$APP_CODE" --argjson architecture "$APP_ARCHITECTURE" --argjson capabilities "$APP_CAPABILITIES" '{appCode: $appCode, architecture: $architecture, capabilities: $capabilities}')"
           status="$({ curl --silent --show-error \
             --output "$api_response" \
             --write-out '%{http_code}' \
@@ -127,6 +130,7 @@ jobs:
             echo "- Reprocessada: \`$retried\`"
             echo "- Repositório: \`$GITHUB_REPOSITORY\`"
             echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Capabilities: \`$(jq -c 'keys' <<<"$APP_CAPABILITIES")\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remover respostas temporárias
