@@ -84,6 +84,7 @@ jobs:
           audience_encoded="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$ACTIVATION_API_URL")"
           oidc_response="$RUNNER_TEMP/oon-oidc.json"
           api_response="$RUNNER_TEMP/oon-publication.json"
+          api_headers="$RUNNER_TEMP/oon-publication.headers"
 
           curl --fail --silent --show-error \
             --header "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
@@ -95,6 +96,9 @@ jobs:
 
           payload="$(jq -nc --arg appCode "$APP_CODE" --argjson architecture "$APP_ARCHITECTURE" --argjson capabilities "$APP_CAPABILITIES" '{appCode: $appCode, architecture: $architecture, capabilities: $capabilities}')"
           status="$({ curl --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 45 \
+            --dump-header "$api_headers" \
             --output "$api_response" \
             --write-out '%{http_code}' \
             --request POST \
@@ -105,10 +109,42 @@ jobs:
 
           if [[ ! "$status" =~ ^2[0-9][0-9]$ ]]; then
             message="$(jq -r '.error.message // .message // "Falha não detalhada pela API."' "$api_response" 2>/dev/null || true)"
-            echo "Solicitação rejeitada pela Central de Ativações (HTTP ${status:-sem resposta}): $message" >&2
+            code="$(jq -r '.error.code // .code // "UNKNOWN_ERROR"' "$api_response" 2>/dev/null || echo UNKNOWN_ERROR)"
+            phase="$(jq -r '.error.details.phase // .details.phase // .phase // "não informada"' "$api_response" 2>/dev/null || echo "não informada")"
+            upstream_status="$(jq -r '.error.details.upstreamStatus // .details.upstreamStatus // empty' "$api_response" 2>/dev/null || true)"
+            request_id="$(jq -r '.error.details.requestId // .details.requestId // .requestId // empty' "$api_response" 2>/dev/null || true)"
+
+            message="$(printf '%s' "${message:-Falha não detalhada pela API.}" | tr '\r\n' '  ' | cut -c1-500)"
+            code="$(printf '%s' "${code:-UNKNOWN_ERROR}" | tr -cd '[:alnum:]_.-')"
+            phase="$(printf '%s' "${phase:-não informada}" | tr '\r\n' '  ' | cut -c1-120)"
+            upstream_status="$(printf '%s' "$upstream_status" | tr -cd '[:alnum:]_.-')"
+            request_id="$(printf '%s' "$request_id" | tr -cd '[:alnum:]_.:-')"
+            if [[ -z "$request_id" && -s "$api_headers" ]]; then
+              request_id="$(awk 'BEGIN{IGNORECASE=1} /^x-request-id:/{gsub("\r", "", $2); print $2; exit}' "$api_headers")"
+              request_id="$(printf '%s' "$request_id" | tr -cd '[:alnum:]_.:-')"
+            fi
+
+            diagnostic="HTTP ${status:-sem resposta} | código: $code | fase: $phase"
+            [[ -n "$upstream_status" ]] && diagnostic="$diagnostic | upstream: $upstream_status"
+            [[ -n "$request_id" ]] && diagnostic="$diagnostic | requestId: $request_id"
+
+            echo "::error title=Publicação rejeitada::$diagnostic — $message"
+            echo "Solicitação rejeitada pela Central de Ativações: $diagnostic — $message" >&2
+            {
+              echo "## Falha ao solicitar publicação em Dev"
+              echo
+              echo "- App: \`$APP_CODE\`"
+              echo "- Repositório: \`$GITHUB_REPOSITORY\`"
+              echo "- Commit: \`$GITHUB_SHA\`"
+              echo "- HTTP: \`${status:-sem resposta}\`"
+              echo "- Código: \`$code\`"
+              echo "- Fase: \`$phase\`"
+              [[ -n "$upstream_status" ]] && echo "- Status upstream: \`$upstream_status\`"
+              [[ -n "$request_id" ]] && echo "- Request ID: \`$request_id\`"
+              echo "- Mensagem: $message"
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
-
           release_id="$(jq -er '.releaseId | strings | select(length > 0)' "$api_response")"
           stage="$(jq -r '.etapa // "autorizada"' "$api_response")"
           retried="$(jq -r '.reprocessada // false' "$api_response")"
@@ -136,4 +172,4 @@ jobs:
       - name: Remover respostas temporárias
         if: always()
         shell: bash
-        run: rm -f "$RUNNER_TEMP/oon-oidc.json" "$RUNNER_TEMP/oon-publication.json"
+        run: rm -f "$RUNNER_TEMP/oon-oidc.json" "$RUNNER_TEMP/oon-publication.json" "$RUNNER_TEMP/oon-publication.headers"
