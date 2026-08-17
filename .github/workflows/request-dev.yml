@@ -113,6 +113,224 @@ jobs:
             phase="$(jq -r '.error.details.phase // .details.phase // .phase // "não informada"' "$api_response" 2>/dev/null || echo "não informada")"
             upstream_status="$(jq -r '.error.details.upstreamStatus // .details.upstreamStatus // empty' "$api_response" 2>/dev/null || true)"
             request_id="$(jq -r '.error.details.requestId // .details.requestId // .requestId // empty' "$api_response" 2>/dev/null || true)"
+            message="${message:-Falha não detalhada pela API.}"
+            message="${message//              request_id="$(awk 'BEGIN{IGNORECASE=1} /^x-request-id:/{gsub("\r", "", $2); print $2; exit}' "$api_headers")"
+            fi
+
+            diagnostic="HTTP ${status:-sem resposta} | código: $code | fase: $phase"
+            [[ -n "$upstream_status" ]] && diagnostic="$diagnostic | upstream: $upstream_status"
+            [[ -n "$request_id" ]] && diagnostic="$diagnostic | requestId: $request_id"
+
+            echo "::error title=Publicação rejeitada::$diagnostic — $message"
+            echo "Solicitação rejeitada pela Central de Ativações: $diagnostic — $message" >&2
+            {
+              echo "## Falha ao solicitar publicação em Dev"
+              echo
+              echo "- App: \`$APP_CODE\`"
+              echo "- Repositório: \`$GITHUB_REPOSITORY\`"
+              echo "- Commit: \`$GITHUB_SHA\`"
+              echo "- HTTP: \`${status:-sem resposta}\`"
+              echo "- Código: \`$code\`"
+              echo "- Fase: \`$phase\`"
+              [[ -n "$upstream_status" ]] && echo "- Status upstream: \`$upstream_status\`"
+              [[ -n "$request_id" ]] && echo "- Request ID: \`$request_id\`"
+              echo "- Mensagem: $message"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          release_id="$(jq -er '.releaseId | strings | select(length > 0)' "$api_response")"
+          stage="$(jq -r '.etapa // "autorizada"' "$api_response")"
+          retried="$(jq -r '.reprocessada // false' "$api_response")"
+
+          if [[ "$stage" == falha_* || "$stage" == "cancelada" ]]; then
+            message="$(jq -r '.error.message // .message // "A release permaneceu em estado de falha."' "$api_response" 2>/dev/null || true)"
+            echo "A Central de Ativações devolveu HTTP $status, mas a release $release_id está em '$stage': $message" >&2
+            exit 1
+          fi
+
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Publicação Dev solicitada"
+            echo
+            echo "- App: \`$APP_CODE\`"
+            echo "- Release: \`$release_id\`"
+            echo "- Etapa: \`$stage\`"
+            echo "- Reprocessada: \`$retried\`"
+            echo "- Repositório: \`$GITHUB_REPOSITORY\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Capabilities: \`$(jq -c 'keys' <<<"$APP_CAPABILITIES")\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remover respostas temporárias
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/oon-oidc.json" "$RUNNER_TEMP/oon-publication.json" "$RUNNER_TEMP/oon-publication.headers"
+\r'/ }"
+            message="${message//              request_id="$(awk 'BEGIN{IGNORECASE=1} /^x-request-id:/{gsub("\r", "", $2); print $2; exit}' "$api_headers")"
+            fi
+
+            diagnostic="HTTP ${status:-sem resposta} | código: $code | fase: $phase"
+            [[ -n "$upstream_status" ]] && diagnostic="$diagnostic | upstream: $upstream_status"
+            [[ -n "$request_id" ]] && diagnostic="$diagnostic | requestId: $request_id"
+
+            echo "::error title=Publicação rejeitada::$diagnostic — $message"
+            echo "Solicitação rejeitada pela Central de Ativações: $diagnostic — $message" >&2
+            {
+              echo "## Falha ao solicitar publicação em Dev"
+              echo
+              echo "- App: \`$APP_CODE\`"
+              echo "- Repositório: \`$GITHUB_REPOSITORY\`"
+              echo "- Commit: \`$GITHUB_SHA\`"
+              echo "- HTTP: \`${status:-sem resposta}\`"
+              echo "- Código: \`$code\`"
+              echo "- Fase: \`$phase\`"
+              [[ -n "$upstream_status" ]] && echo "- Status upstream: \`$upstream_status\`"
+              [[ -n "$request_id" ]] && echo "- Request ID: \`$request_id\`"
+              echo "- Mensagem: $message"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          release_id="$(jq -er '.releaseId | strings | select(length > 0)' "$api_response")"
+          stage="$(jq -r '.etapa // "autorizada"' "$api_response")"
+          retried="$(jq -r '.reprocessada // false' "$api_response")"
+
+          if [[ "$stage" == falha_* || "$stage" == "cancelada" ]]; then
+            message="$(jq -r '.error.message // .message // "A release permaneceu em estado de falha."' "$api_response" 2>/dev/null || true)"
+            echo "A Central de Ativações devolveu HTTP $status, mas a release $release_id está em '$stage': $message" >&2
+            exit 1
+          fi
+
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Publicação Dev solicitada"
+            echo
+            echo "- App: \`$APP_CODE\`"
+            echo "- Release: \`$release_id\`"
+            echo "- Etapa: \`$stage\`"
+            echo "- Reprocessada: \`$retried\`"
+            echo "- Repositório: \`$GITHUB_REPOSITORY\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Capabilities: \`$(jq -c 'keys' <<<"$APP_CAPABILITIES")\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remover respostas temporárias
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/oon-oidc.json" "$RUNNER_TEMP/oon-publication.json" "$RUNNER_TEMP/oon-publication.headers"
+\n'/ }"
+            message="${message:0:500}"
+            code="$(tr -cd '[:alnum:]_.-' <<<"${code:-UNKNOWN_ERROR}")"
+            phase="${phase//              request_id="$(awk 'BEGIN{IGNORECASE=1} /^x-request-id:/{gsub("\r", "", $2); print $2; exit}' "$api_headers")"
+            fi
+
+            diagnostic="HTTP ${status:-sem resposta} | código: $code | fase: $phase"
+            [[ -n "$upstream_status" ]] && diagnostic="$diagnostic | upstream: $upstream_status"
+            [[ -n "$request_id" ]] && diagnostic="$diagnostic | requestId: $request_id"
+
+            echo "::error title=Publicação rejeitada::$diagnostic — $message"
+            echo "Solicitação rejeitada pela Central de Ativações: $diagnostic — $message" >&2
+            {
+              echo "## Falha ao solicitar publicação em Dev"
+              echo
+              echo "- App: \`$APP_CODE\`"
+              echo "- Repositório: \`$GITHUB_REPOSITORY\`"
+              echo "- Commit: \`$GITHUB_SHA\`"
+              echo "- HTTP: \`${status:-sem resposta}\`"
+              echo "- Código: \`$code\`"
+              echo "- Fase: \`$phase\`"
+              [[ -n "$upstream_status" ]] && echo "- Status upstream: \`$upstream_status\`"
+              [[ -n "$request_id" ]] && echo "- Request ID: \`$request_id\`"
+              echo "- Mensagem: $message"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          release_id="$(jq -er '.releaseId | strings | select(length > 0)' "$api_response")"
+          stage="$(jq -r '.etapa // "autorizada"' "$api_response")"
+          retried="$(jq -r '.reprocessada // false' "$api_response")"
+
+          if [[ "$stage" == falha_* || "$stage" == "cancelada" ]]; then
+            message="$(jq -r '.error.message // .message // "A release permaneceu em estado de falha."' "$api_response" 2>/dev/null || true)"
+            echo "A Central de Ativações devolveu HTTP $status, mas a release $release_id está em '$stage': $message" >&2
+            exit 1
+          fi
+
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Publicação Dev solicitada"
+            echo
+            echo "- App: \`$APP_CODE\`"
+            echo "- Release: \`$release_id\`"
+            echo "- Etapa: \`$stage\`"
+            echo "- Reprocessada: \`$retried\`"
+            echo "- Repositório: \`$GITHUB_REPOSITORY\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Capabilities: \`$(jq -c 'keys' <<<"$APP_CAPABILITIES")\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remover respostas temporárias
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/oon-oidc.json" "$RUNNER_TEMP/oon-publication.json" "$RUNNER_TEMP/oon-publication.headers"
+\r'/ }"
+            phase="${phase//              request_id="$(awk 'BEGIN{IGNORECASE=1} /^x-request-id:/{gsub("\r", "", $2); print $2; exit}' "$api_headers")"
+            fi
+
+            diagnostic="HTTP ${status:-sem resposta} | código: $code | fase: $phase"
+            [[ -n "$upstream_status" ]] && diagnostic="$diagnostic | upstream: $upstream_status"
+            [[ -n "$request_id" ]] && diagnostic="$diagnostic | requestId: $request_id"
+
+            echo "::error title=Publicação rejeitada::$diagnostic — $message"
+            echo "Solicitação rejeitada pela Central de Ativações: $diagnostic — $message" >&2
+            {
+              echo "## Falha ao solicitar publicação em Dev"
+              echo
+              echo "- App: \`$APP_CODE\`"
+              echo "- Repositório: \`$GITHUB_REPOSITORY\`"
+              echo "- Commit: \`$GITHUB_SHA\`"
+              echo "- HTTP: \`${status:-sem resposta}\`"
+              echo "- Código: \`$code\`"
+              echo "- Fase: \`$phase\`"
+              [[ -n "$upstream_status" ]] && echo "- Status upstream: \`$upstream_status\`"
+              [[ -n "$request_id" ]] && echo "- Request ID: \`$request_id\`"
+              echo "- Mensagem: $message"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          release_id="$(jq -er '.releaseId | strings | select(length > 0)' "$api_response")"
+          stage="$(jq -r '.etapa // "autorizada"' "$api_response")"
+          retried="$(jq -r '.reprocessada // false' "$api_response")"
+
+          if [[ "$stage" == falha_* || "$stage" == "cancelada" ]]; then
+            message="$(jq -r '.error.message // .message // "A release permaneceu em estado de falha."' "$api_response" 2>/dev/null || true)"
+            echo "A Central de Ativações devolveu HTTP $status, mas a release $release_id está em '$stage': $message" >&2
+            exit 1
+          fi
+
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Publicação Dev solicitada"
+            echo
+            echo "- App: \`$APP_CODE\`"
+            echo "- Release: \`$release_id\`"
+            echo "- Etapa: \`$stage\`"
+            echo "- Reprocessada: \`$retried\`"
+            echo "- Repositório: \`$GITHUB_REPOSITORY\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Capabilities: \`$(jq -c 'keys' <<<"$APP_CAPABILITIES")\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remover respostas temporárias
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/oon-oidc.json" "$RUNNER_TEMP/oon-publication.json" "$RUNNER_TEMP/oon-publication.headers"
+\n'/ }"
+            phase="${phase:0:120}"
+            upstream_status="$(tr -cd '[:alnum:]_.-' <<<"$upstream_status")"
+            request_id="$(tr -cd '[:alnum:]_.:-' <<<"$request_id")"
             if [[ -z "$request_id" && -s "$api_headers" ]]; then
               request_id="$(awk 'BEGIN{IGNORECASE=1} /^x-request-id:/{gsub("\r", "", $2); print $2; exit}' "$api_headers")"
             fi
