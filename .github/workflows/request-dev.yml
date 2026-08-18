@@ -55,6 +55,7 @@ jobs:
 
           architecture='{}'
           capabilities="$(jq -ce '.capabilities // {} | if type == "object" then . else error("capabilities deve ser um objeto") end' oon.deploy.json)"
+          functional_capabilities='{}'
           if [[ -f central.app.json ]]; then
             architecture="$(jq -ce '{
               tenancyModel,
@@ -63,12 +64,39 @@ jobs:
               authorizationMode,
               deploymentMode
             } | with_entries(select(.value != null and .value != ""))' central.app.json)"
+
+            jq -e '.schemaVersion == 1 and (.capabilities | type == "array") and ((.capabilitySettings // {}) | type == "object")' central.app.json >/dev/null || {
+              echo "central.app.json inválido: schemaVersion, capabilities ou capabilitySettings." >&2
+              exit 1
+            }
+            if jq -e '.capabilities | index("core.transactional-email") != null' central.app.json >/dev/null; then
+              jq -e '
+                .capabilitySettings["core.transactional-email"] as $email |
+                ($email.enabled == true) and
+                ($email.scopePolicy | IN("app_only", "tenant_required", "tenant_override")) and
+                ($email.templates | type == "array" and length > 0) and
+                ([$email.templates[] |
+                  (.code | strings | test("^[a-z0-9][a-z0-9-]{0,49}$")) and
+                  (.definition | strings | test("^(?!/)(?!.*\\.\\.)[^[:cntrl:]]+\\.json$"))
+                ] | all)
+              ' central.app.json >/dev/null || {
+                echo "Declaração de core.transactional-email inválida no central.app.json." >&2
+                exit 1
+              }
+              functional_capabilities="$(jq -ce '{"core.transactional-email": .capabilitySettings["core.transactional-email"]}' central.app.json)"
+            fi
           fi
+
+          jq -e 'has("core.transactional-email") | not' <<<"$capabilities" >/dev/null || {
+            echo "core.transactional-email é funcional e deve existir apenas no central.app.json." >&2
+            exit 1
+          }
 
           echo "app_code=$app_code" >> "$GITHUB_OUTPUT"
           echo "schema_version=$schema_version" >> "$GITHUB_OUTPUT"
           echo "architecture=$architecture" >> "$GITHUB_OUTPUT"
           echo "capabilities=$capabilities" >> "$GITHUB_OUTPUT"
+          echo "functional_capabilities=$functional_capabilities" >> "$GITHUB_OUTPUT"
 
       - name: Solicitar autorização à Central de Ativações
         id: request
@@ -77,6 +105,7 @@ jobs:
           APP_CODE: ${{ steps.manifest.outputs.app_code }}
           APP_ARCHITECTURE: ${{ steps.manifest.outputs.architecture }}
           APP_CAPABILITIES: ${{ steps.manifest.outputs.capabilities }}
+          APP_FUNCTIONAL_CAPABILITIES: ${{ steps.manifest.outputs.functional_capabilities }}
           ACTIVATION_API_URL: https://central-ativacao.central.oondemand.online/api
         run: |
           set -euo pipefail
@@ -94,7 +123,7 @@ jobs:
           oidc_token="$(jq -er '.value | strings | select(length > 0)' "$oidc_response")"
           echo "::add-mask::$oidc_token"
 
-          payload="$(jq -nc --arg appCode "$APP_CODE" --argjson architecture "$APP_ARCHITECTURE" --argjson capabilities "$APP_CAPABILITIES" '{appCode: $appCode, architecture: $architecture, capabilities: $capabilities}')"
+          payload="$(jq -nc --arg appCode "$APP_CODE" --argjson architecture "$APP_ARCHITECTURE" --argjson capabilities "$APP_CAPABILITIES" --argjson functionalCapabilities "$APP_FUNCTIONAL_CAPABILITIES" '{appCode: $appCode, architecture: $architecture, capabilities: $capabilities, functionalCapabilities: $functionalCapabilities}')"
           status="$({ curl --silent --show-error \
             --connect-timeout 10 \
             --max-time 45 \
@@ -167,6 +196,7 @@ jobs:
             echo "- Repositório: \`$GITHUB_REPOSITORY\`"
             echo "- Commit: \`$GITHUB_SHA\`"
             echo "- Capabilities: \`$(jq -c 'keys' <<<"$APP_CAPABILITIES")\`"
+            echo "- Capabilities funcionais: \`$(jq -c 'keys' <<<"$APP_FUNCTIONAL_CAPABILITIES")\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remover respostas temporárias
