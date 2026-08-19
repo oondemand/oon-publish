@@ -49,3 +49,15 @@ O workflow envia somente nomes e versões mínimas. A Central de Ativações blo
 ## Versionamento
 
 Enquanto a primeira etapa está em homologação, os consumidores usam `@main`. Após estabilização, o workflow deve ser consumido por uma tag imutável, como `@v1` ou por SHA completo.
+
+## Promoção entre ambientes
+
+`promote-environment.yml` é acionado exclusivamente pela Central de Ativações.
+Ele recebe um `release_id`, obtém por OIDC o contexto canônico e aplica em
+Homologação ou Produção o `imageDigest` já validado em Dev. O workflow não faz
+checkout do App, não executa build e não publica uma nova imagem.
+
+O Control Plane recusa artefatos anteriores ao contrato neutro de ambiente,
+operações concorrentes, ausência de RBAC/entitlement/licença e Produção sem o
+aceite de Homologação quando exigido. Falhas preservam o histórico e podem ser
+reconciliadas de forma idempotente pelo Meus Apps.

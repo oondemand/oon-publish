@@ -1,0 +1,148 @@
+name: promote-environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_id:
+        required: true
+        type: string
+      activation_api_url:
+        required: true
+        type: string
+      operation_type:
+        required: false
+        default: promocao
+        type: choice
+        options: [promocao, rollback]
+
+concurrency:
+  group: oon-promote-${{ inputs.release_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      packages: read
+    steps:
+      - name: Obter executor confiável
+        uses: actions/checkout@v4
+        with:
+          repository: oondemand/central-ativacao
+          ref: main
+          path: executor
+          persist-credentials: false
+          submodules: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: azure/setup-kubectl@v4
+
+      - name: Instalar runtime oficial
+        run: bash executor/scripts/actions/install-core.sh executor/backend
+
+      - name: Emitir identidade OIDC do executor
+        shell: bash
+        env:
+          ACTIVATION_API_URL: ${{ inputs.activation_api_url }}
+        run: |
+          set -euo pipefail
+          separator='?'
+          [[ "$ACTIONS_ID_TOKEN_REQUEST_URL" == *\?* ]] && separator='&'
+          audience="$(printf '%s' "$ACTIVATION_API_URL" | jq -sRr @uri)"
+          identity="$(curl --fail-with-body --silent --show-error             -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "${ACTIONS_ID_TOKEN_REQUEST_URL}${separator}audience=${audience}")"
+          token="$(jq -er '.value | strings | select(length > 0)' <<<"$identity")"
+          echo "::add-mask::$token"
+          printf 'OON_DELIVERY_SHARED_SECRET=%s\n' "$token" >> "$GITHUB_ENV"
+
+      - name: Obter contexto canônico sem reconstruir
+        env:
+          RELEASE_ID: ${{ inputs.release_id }}
+          ACTIVATION_API_URL: ${{ inputs.activation_api_url }}
+        run: |
+          node executor/backend/node_modules/@oondemand/oon-core-back/bin/delivery.js context             --release "$RELEASE_ID"             --api "$ACTIVATION_API_URL"             --phase deploy             --output "$RUNNER_TEMP/context.json"
+
+          image_digest="$(jq -er '.imageDigest | strings | select(test("^sha256:[a-f0-9]{64}$"))' "$RUNNER_TEMP/context.json")"
+          operation_type="$(jq -r '.operationType // empty' "$RUNNER_TEMP/context.json")"
+          test "$operation_type" = '${{ inputs.operation_type }}'
+          echo "IMAGE_DIGEST=$image_digest" >> "$GITHUB_ENV"
+
+      - name: Registrar promoção do digest existente
+        env:
+          RELEASE_ID: ${{ inputs.release_id }}
+          ACTIVATION_API_URL: ${{ inputs.activation_api_url }}
+        run: |
+          node executor/backend/node_modules/@oondemand/oon-core-back/bin/delivery.js state             --release "$RELEASE_ID"             --api "$ACTIVATION_API_URL"             --state promovendo             --image-digest "$IMAGE_DIGEST"
+
+      - name: Preparar identidade Kubernetes do publisher
+        env:
+          PUBLISHER_KUBECONFIG_B64: ${{ secrets.PUBLISHER_KUBECONFIG_B64 }}
+        run: bash executor/scripts/actions/prepare-publisher-kubeconfig.sh
+
+      - name: Aplicar exatamente o mesmo digest
+        env:
+          RELEASE_ID: ${{ inputs.release_id }}
+          ACTIVATION_API_URL: ${{ inputs.activation_api_url }}
+        run: |
+          node executor/scripts/actions/deploy-central-dev.js             --release "$RELEASE_ID"             --api "$ACTIVATION_API_URL"             --context "$RUNNER_TEMP/context.json"             --image-digest "$IMAGE_DIGEST"
+
+      - name: Resumo auditável
+        if: success()
+        run: |
+          {
+            echo "## Promoção concluída"
+            echo
+            echo "- Release: `${{ inputs.release_id }}`"
+            echo "- Operação: `${{ inputs.operation_type }}`"
+            echo "- Ambiente: `$(jq -r '.environment' "$RUNNER_TEMP/context.json")`"
+            echo "- Digest: `$IMAGE_DIGEST`"
+            echo "- Rebuild: `não`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - if: always()
+        run: rm -f "$RUNNER_TEMP/context.json" "$RUNNER_TEMP/kubeconfig"
+
+  report-failure:
+    needs: promote
+    if: ${{ always() && needs.promote.result == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Registrar falha sanitizada
+        continue-on-error: true
+        shell: bash
+        env:
+          RELEASE_ID: ${{ inputs.release_id }}
+          ACTIVATION_API_URL: ${{ inputs.activation_api_url }}
+        run: |
+          set -euo pipefail
+          separator='?'
+          [[ "$ACTIONS_ID_TOKEN_REQUEST_URL" == *\?* ]] && separator='&'
+          audience="$(printf '%s' "$ACTIVATION_API_URL" | jq -sRr @uri)"
+          token="$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}${separator}audience=${audience}" | jq -er '.value')"
+          echo "::add-mask::$token"
+          payload="$(jq -nc \
+            --arg etapa falha_deploy \
+            --arg erroCodigo PROMOTION_PIPELINE_FAILED \
+            --arg erroMensagem 'Falha ao promover o digest autorizado.' \
+            '{etapa:$etapa, erroCodigo:$erroCodigo, erroMensagem:$erroMensagem}')"
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-all-errors \
+            --request POST \
+            --header "x-oon-delivery-token: $token" \
+            --header 'Content-Type: application/json' \
+            --data "$payload" \
+            "${ACTIVATION_API_URL%/}/integracao/publicacoes/${RELEASE_ID}/estado"

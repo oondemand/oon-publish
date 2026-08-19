@@ -123,7 +123,7 @@ jobs:
           oidc_token="$(jq -er '.value | strings | select(length > 0)' "$oidc_response")"
           echo "::add-mask::$oidc_token"
 
-          payload="$(jq -nc --arg appCode "$APP_CODE" --argjson architecture "$APP_ARCHITECTURE" --argjson capabilities "$APP_CAPABILITIES" --argjson functionalCapabilities "$APP_FUNCTIONAL_CAPABILITIES" '{appCode: $appCode, architecture: $architecture, capabilities: $capabilities, functionalCapabilities: $functionalCapabilities}')"
+          payload="$(jq -nc --arg appCode "$APP_CODE" --argjson architecture "$APP_ARCHITECTURE" --argjson capabilities "$APP_CAPABILITIES" --argjson functionalCapabilities "$APP_FUNCTIONAL_CAPABILITIES" '{appCode: $appCode, architecture: $architecture, capabilities: $capabilities, functionalCapabilities: $functionalCapabilities, artifactContractVersion: 1}')"
           status="$({ curl --silent --show-error \
             --connect-timeout 10 \
             --max-time 45 \
