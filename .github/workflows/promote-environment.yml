@@ -57,7 +57,8 @@ jobs:
       - uses: azure/setup-kubectl@v4
 
       - name: Instalar runtime oficial
-        run: bash executor/scripts/actions/install-core.sh executor/backend
+        working-directory: executor
+        run: bash scripts/actions/install-core.sh backend
 
       - name: Emitir identidade OIDC do executor
         shell: bash
