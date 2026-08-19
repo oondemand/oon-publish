@@ -31,10 +31,20 @@ jobs:
       id-token: write
       packages: read
     steps:
+      - name: Gerar token do Oon Control Plane
+        id: control-plane-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.OON_CONTROL_PLANE_APP_ID }}
+          private-key: ${{ secrets.OON_CONTROL_PLANE_APP_PRIVATE_KEY }}
+          owner: oondemand
+          repositories: central-ativacao
+
       - name: Obter executor confiável
         uses: actions/checkout@v4
         with:
           repository: oondemand/central-ativacao
+          token: ${{ steps.control-plane-token.outputs.token }}
           ref: main
           path: executor
           persist-credentials: false
