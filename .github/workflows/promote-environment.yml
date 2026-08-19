@@ -99,11 +99,12 @@ jobs:
         run: bash executor/scripts/actions/prepare-publisher-kubeconfig.sh
 
       - name: Aplicar exatamente o mesmo digest
+        working-directory: executor
         env:
           RELEASE_ID: ${{ inputs.release_id }}
           ACTIVATION_API_URL: ${{ inputs.activation_api_url }}
         run: |
-          node executor/scripts/actions/deploy-central-dev.js             --release "$RELEASE_ID"             --api "$ACTIVATION_API_URL"             --context "$RUNNER_TEMP/context.json"             --image-digest "$IMAGE_DIGEST"
+          node scripts/actions/deploy-central-dev.js             --release "$RELEASE_ID"             --api "$ACTIVATION_API_URL"             --context "$RUNNER_TEMP/context.json"             --image-digest "$IMAGE_DIGEST"
 
       - name: Resumo auditável
         if: success()
