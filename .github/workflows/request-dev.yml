@@ -87,18 +87,21 @@ jobs:
             fi
           fi
 
-          if jq -e '.tenancyModel == "none"' <<<"$architecture" >/dev/null; then
-            jq -e '
-              .tenancyModel == "none" and
+          jq -e '
+            if .tenancyModel == "none" then
               .availability == "common" and
               .accessMode == "authenticated_users" and
               .authorizationMode == "rbac" and
               .deploymentMode == "singleton"
-            ' <<<"$architecture" >/dev/null || {
-              echo "App global deve declarar o contrato canônico none/common/authenticated_users/rbac/singleton." >&2
-              exit 1
-            }
-          fi
+            elif .accessMode == "authenticated_users" or .deploymentMode == "singleton" then
+              false
+            else
+              true
+            end
+          ' <<<"$architecture" >/dev/null || {
+            echo "Arquitetura global inválida: use none/common/authenticated_users/rbac/singleton." >&2
+            exit 1
+          }
 
           jq -e 'has("core.transactional-email") | not' <<<"$capabilities" >/dev/null || {
             echo "core.transactional-email é funcional e deve existir apenas no central.app.json." >&2
