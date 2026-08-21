@@ -83,7 +83,18 @@ jobs:
 
           image_digest="$(jq -er '.imageDigest | strings | select(test("^sha256:[a-f0-9]{64}$"))' "$RUNNER_TEMP/context.json")"
           operation_type="$(jq -r '.operationType // empty' "$RUNNER_TEMP/context.json")"
+          lifecycle_mode="$(jq -r '.lifecycleMode // "tenant_activation"' "$RUNNER_TEMP/context.json")"
+          deployment_id="$(jq -r '.deploymentId // empty' "$RUNNER_TEMP/context.json")"
+          deployment_token="$(jq -r '.deploymentToken // empty' "$RUNNER_TEMP/context.json")"
           test "$operation_type" = '${{ inputs.operation_type }}'
+          if [[ "$lifecycle_mode" == "global_singleton" ]]; then
+            test -n "$deployment_id"
+            test -n "$deployment_token"
+            echo "::add-mask::$deployment_token"
+          else
+            test -z "$deployment_id"
+            test -z "$deployment_token"
+          fi
           echo "IMAGE_DIGEST=$image_digest" >> "$GITHUB_ENV"
 
       - name: Registrar promoção do digest existente
