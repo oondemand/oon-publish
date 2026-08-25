@@ -159,13 +159,13 @@ jobs:
           {
             echo "## Endpoint de delivery"
             echo
-            echo "- Central: `$normalized`"
+            printf -- '- Central: `%s`\n' "$normalized"
             if [[ -n "${INPUT_ACTIVATION_API_URL:-}" ]]; then
-              echo "- Origem: `workflow input`"
+              printf -- '- Origem: `workflow input`\n'
             elif [[ -n "${ORGANIZATION_ACTIVATION_API_URL:-}" ]]; then
-              echo "- Origem: `organization variable`"
+              printf -- '- Origem: `organization variable`\n'
             else
-              echo "- Origem: `legacy fallback`"
+              printf -- '- Origem: `legacy fallback`\n'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
