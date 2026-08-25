@@ -36,17 +36,18 @@ A Central de Ativações valida a identidade OIDC, o App, o repositório e o com
 
 A publicação Dev resolve a Central de Ativações nesta ordem:
 
-1. input opcional `activation_api_url` do workflow reutilizável;
-2. variável organizacional `OON_ACTIVATION_API_URL`;
-3. fallback temporário `https://central-ativacao.central.oondemand.online/api`.
+1. input explícito `activation_api_url` do workflow reutilizável;
+2. variável organizacional `OON_ACTIVATION_API_URL`.
 
-O endpoint deve usar HTTPS, terminar em `/api` e apontar para um hostname explicitamente permitido pelo workflow. Para o novo ambiente, configure na organização:
+Não existe endpoint default ou fallback para a infraestrutura anterior. Enquanto nenhuma das duas configurações estiver presente, o workflow falha antes de solicitar a identidade OIDC e não envia publicação a qualquer Central.
+
+O endpoint deve usar HTTPS, terminar em `/api` e apontar exatamente para o hostname greenfield:
 
 ```text
 OON_ACTIVATION_API_URL=https://central-ativacao.oonapps.online/api
 ```
 
-A variável só deve ser alterada depois que a nova Central estiver publicada, com readiness validado e apta a autorizar releases. Enquanto ela não for configurada, todos os consumidores permanecem no ambiente atual sem alterações individuais.
+Credenciais na URL, query string, fragmento, porta alternativa e qualquer domínio legado são recusados. Configure a variável somente depois que a nova Central estiver publicada e com readiness validado.
 
 ## Capabilities obrigatórias
 
