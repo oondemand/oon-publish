@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+workflow=".github/workflows/request-dev.yml"
+
+test -f "$workflow"
+grep -Fq 'configured="${INPUT_ACTIVATION_API_URL:-${ORGANIZATION_ACTIVATION_API_URL:-}}"' "$workflow"
+grep -Fq '[[ -n "$configured" ]]' "$workflow"
+grep -Fq 'allowed_hosts = {"central-ativacao.oonapps.online"}' "$workflow"
+grep -Fq 'parsed.path.rstrip("/") != "/api"' "$workflow"
+grep -Fq 'parsed.port not in (None, 443)' "$workflow"
+grep -Fq 'parsed.username or parsed.password or parsed.query or parsed.fragment' "$workflow"
+grep -Fq 'OON_ACTIVATION_API_URL=https://central-ativacao.oonapps.online/api' README.md
+
+if grep -R -n -E 'central-ativacao\.central\.oondemand\.online|legacy fallback|LEGACY_ACTIVATION_API_URL' \
+  .github/workflows README.md; then
+  echo "Oon Publish não pode referenciar o endpoint legado." >&2
+  exit 1
+fi
+
+echo "Greenfield activation endpoint contracts ok"
