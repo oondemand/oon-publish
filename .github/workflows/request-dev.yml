@@ -2,6 +2,12 @@ name: request-central-dev
 
 on:
   workflow_call:
+    inputs:
+      activation_api_url:
+        description: Override opcional do endpoint canônico da Central
+        required: false
+        type: string
+        default: ""
     outputs:
       release_id:
         description: Release autorizada pela Central de Ativações
@@ -114,6 +120,55 @@ jobs:
           echo "capabilities=$capabilities" >> "$GITHUB_OUTPUT"
           echo "functional_capabilities=$functional_capabilities" >> "$GITHUB_OUTPUT"
 
+      - name: Resolver endpoint canônico da Central
+        id: endpoint
+        shell: bash
+        env:
+          INPUT_ACTIVATION_API_URL: ${{ inputs.activation_api_url }}
+          ORGANIZATION_ACTIVATION_API_URL: ${{ vars.OON_ACTIVATION_API_URL }}
+          LEGACY_ACTIVATION_API_URL: https://central-ativacao.central.oondemand.online/api
+        run: |
+          set -euo pipefail
+
+          configured="${INPUT_ACTIVATION_API_URL:-${ORGANIZATION_ACTIVATION_API_URL:-$LEGACY_ACTIVATION_API_URL}}"
+          normalized="$(python3 - "$configured" <<'PY'
+          import sys
+          from urllib.parse import urlsplit, urlunsplit
+
+          raw = sys.argv[1].strip()
+          parsed = urlsplit(raw)
+          allowed_hosts = {
+              "central-ativacao.central.oondemand.online",
+              "central-ativacao.oonapps.online",
+          }
+          if parsed.scheme != "https":
+              raise SystemExit("OON_ACTIVATION_API_URL deve usar HTTPS.")
+          if parsed.hostname not in allowed_hosts:
+              raise SystemExit("OON_ACTIVATION_API_URL aponta para hostname não autorizado.")
+          if parsed.username or parsed.password or parsed.query or parsed.fragment:
+              raise SystemExit("OON_ACTIVATION_API_URL não pode conter credenciais, query ou fragment.")
+          if parsed.port not in (None, 443):
+              raise SystemExit("OON_ACTIVATION_API_URL deve usar a porta HTTPS padrão.")
+          if parsed.path.rstrip("/") != "/api":
+              raise SystemExit("OON_ACTIVATION_API_URL deve terminar em /api.")
+          print(urlunsplit(("https", parsed.hostname, "/api", "", "")))
+          PY
+          )"
+
+          echo "activation_api_url=$normalized" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Endpoint de delivery"
+            echo
+            printf -- '- Central: `%s`\n' "$normalized"
+            if [[ -n "${INPUT_ACTIVATION_API_URL:-}" ]]; then
+              printf -- '- Origem: `workflow input`\n'
+            elif [[ -n "${ORGANIZATION_ACTIVATION_API_URL:-}" ]]; then
+              printf -- '- Origem: `organization variable`\n'
+            else
+              printf -- '- Origem: `legacy fallback`\n'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Solicitar autorização à Central de Ativações
         id: request
         shell: bash
@@ -122,7 +177,7 @@ jobs:
           APP_ARCHITECTURE: ${{ steps.manifest.outputs.architecture }}
           APP_CAPABILITIES: ${{ steps.manifest.outputs.capabilities }}
           APP_FUNCTIONAL_CAPABILITIES: ${{ steps.manifest.outputs.functional_capabilities }}
-          ACTIVATION_API_URL: https://central-ativacao.central.oondemand.online/api
+          ACTIVATION_API_URL: ${{ steps.endpoint.outputs.activation_api_url }}
         run: |
           set -euo pipefail
 
