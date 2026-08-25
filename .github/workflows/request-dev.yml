@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       activation_api_url:
-        description: Override opcional do endpoint canônico da Central
+        description: Endpoint canônico explícito da Central; se omitido, exige OON_ACTIVATION_API_URL
         required: false
         type: string
         default: ""
@@ -126,21 +126,21 @@ jobs:
         env:
           INPUT_ACTIVATION_API_URL: ${{ inputs.activation_api_url }}
           ORGANIZATION_ACTIVATION_API_URL: ${{ vars.OON_ACTIVATION_API_URL }}
-          LEGACY_ACTIVATION_API_URL: https://central-ativacao.central.oondemand.online/api
         run: |
           set -euo pipefail
 
-          configured="${INPUT_ACTIVATION_API_URL:-${ORGANIZATION_ACTIVATION_API_URL:-$LEGACY_ACTIVATION_API_URL}}"
+          configured="${INPUT_ACTIVATION_API_URL:-${ORGANIZATION_ACTIVATION_API_URL:-}}"
+          [[ -n "$configured" ]] || {
+            echo "Endpoint da Central não configurado. Defina OON_ACTIVATION_API_URL=https://central-ativacao.oonapps.online/api." >&2
+            exit 1
+          }
           normalized="$(python3 - "$configured" <<'PY'
           import sys
           from urllib.parse import urlsplit, urlunsplit
 
           raw = sys.argv[1].strip()
           parsed = urlsplit(raw)
-          allowed_hosts = {
-              "central-ativacao.central.oondemand.online",
-              "central-ativacao.oonapps.online",
-          }
+          allowed_hosts = {"central-ativacao.oonapps.online"}
           if parsed.scheme != "https":
               raise SystemExit("OON_ACTIVATION_API_URL deve usar HTTPS.")
           if parsed.hostname not in allowed_hosts:
@@ -162,10 +162,8 @@ jobs:
             printf -- '- Central: `%s`\n' "$normalized"
             if [[ -n "${INPUT_ACTIVATION_API_URL:-}" ]]; then
               printf -- '- Origem: `workflow input`\n'
-            elif [[ -n "${ORGANIZATION_ACTIVATION_API_URL:-}" ]]; then
-              printf -- '- Origem: `organization variable`\n'
             else
-              printf -- '- Origem: `legacy fallback`\n'
+              printf -- '- Origem: `organization variable`\n'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
