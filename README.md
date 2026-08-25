@@ -32,6 +32,22 @@ O workflow:
 
 A Central de Ativações valida a identidade OIDC, o App, o repositório e o commit antes de despachar o executor privado. Apps tenant-scoped também passam pelos gates de licença/entitlement; Apps globais canônicos (`none/common/authenticated_users/rbac/singleton`) usam o lifecycle tenantless.
 
+## Endpoint canônico e cutover de infraestrutura
+
+A publicação Dev resolve a Central de Ativações nesta ordem:
+
+1. input opcional `activation_api_url` do workflow reutilizável;
+2. variável organizacional `OON_ACTIVATION_API_URL`;
+3. fallback temporário `https://central-ativacao.central.oondemand.online/api`.
+
+O endpoint deve usar HTTPS, terminar em `/api` e apontar para um hostname explicitamente permitido pelo workflow. Para o novo ambiente, configure na organização:
+
+```text
+OON_ACTIVATION_API_URL=https://central-ativacao.oonapps.online/api
+```
+
+A variável só deve ser alterada depois que a nova Central estiver publicada, com readiness validado e apta a autorizar releases. Enquanto ela não for configurada, todos os consumidores permanecem no ambiente atual sem alterações individuais.
+
 ## Capabilities obrigatórias
 
 ```json
