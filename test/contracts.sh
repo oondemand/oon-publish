@@ -14,6 +14,8 @@ grep -Fq 'parsed.username or parsed.password or parsed.query or parsed.fragment'
 grep -Fq 'OON_ACTIVATION_API_URL=https://central-ativacao.oonapps.online/api' README.md
 grep -Fq '(.accessMode | IN("authenticated_users", "explicit_users"))' "$workflow"
 grep -Fq 'Arquitetura tenantless inválida' "$workflow"
+grep -Fq 'none/common/{authenticated_users|explicit_users}/rbac/singleton' README.md
+grep -Fq '`explicit_users` atende Apps estruturais restritos' README.md
 
 if grep -R -n -E 'central-ativacao\.central\.oondemand\.online|legacy fallback|LEGACY_ACTIVATION_API_URL' \
   .github/workflows README.md; then
