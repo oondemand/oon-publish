@@ -96,7 +96,7 @@ jobs:
           jq -e '
             if .tenancyModel == "none" then
               .availability == "common" and
-              (.accessMode | IN("authenticated_users", "explicit_users")) and
+               .accessMode == "authenticated_users" and
               .authorizationMode == "rbac" and
               .deploymentMode == "singleton"
             elif .accessMode == "authenticated_users" or .deploymentMode == "singleton" then
@@ -105,7 +105,7 @@ jobs:
               true
             end
           ' <<<"$architecture" >/dev/null || {
-            echo "Arquitetura tenantless inválida: use none/common/(authenticated_users|explicit_users)/rbac/singleton." >&2
+            echo "Arquitetura tenantless inválida: use none/common/authenticated_users/rbac/singleton." >&2
             exit 1
           }
 
