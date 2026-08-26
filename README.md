@@ -30,7 +30,7 @@ O workflow:
 3. envia a solicitação para a Central de Ativações;
 4. não recebe kubeconfig, token do registry, credencial do MongoDB ou chave do GitHub App.
 
-A Central de Ativações valida a identidade OIDC, o App, o repositório e o commit antes de despachar o executor privado. Apps tenant-scoped também passam pelos gates de licença/entitlement; Apps globais canônicos (`none/common/authenticated_users/rbac/singleton`) usam o lifecycle tenantless.
+A Central de Ativações valida a identidade OIDC, o App, o repositório e o commit antes de despachar o executor privado. Apps tenant-scoped também passam pelos gates de licença/entitlement. Singletons tenantless usam o lifecycle sem licença artificial quando declaram `none/common/{authenticated_users|explicit_users}/rbac/singleton`: `authenticated_users` atende Apps globais abertos a qualquer usuário autenticado, enquanto `explicit_users` atende Apps estruturais restritos, como o Oon Docs.
 
 ## Endpoint canônico e cutover de infraestrutura
 
@@ -81,7 +81,7 @@ aceite de Homologação quando exigido. Falhas preservam o histórico e podem se
 reconciliadas de forma idempotente pelo Meus Apps.
 
 
-## Apps globais e credenciais de Deployment
+## Apps singleton tenantless e credenciais de Deployment
 
 Para um App global, o contexto de delivery usa `lifecycleMode=global_singleton` e uma identidade operacional composta por `deploymentId` e `deploymentToken`. O token é mascarado imediatamente pelo workflow, permanece somente no arquivo temporário protegido e é removido no cleanup. Ele nunca é enviado em URL, output ou resumo.
 
