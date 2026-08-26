@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       activation_api_url:
-        description: Endpoint canônico explícito da Central; se omitido, exige OON_ACTIVATION_API_URL
+        description: Endpoint explícito da Central; se omitido, usa OON_ACTIVATION_API_URL ou o endpoint SaaS
         required: false
         type: string
         default: ""
@@ -126,14 +126,11 @@ jobs:
         env:
           INPUT_ACTIVATION_API_URL: ${{ inputs.activation_api_url }}
           ORGANIZATION_ACTIVATION_API_URL: ${{ vars.OON_ACTIVATION_API_URL }}
+          DEFAULT_ACTIVATION_API_URL: https://central-ativacao.oonapps.online/api
         run: |
           set -euo pipefail
 
-          configured="${INPUT_ACTIVATION_API_URL:-${ORGANIZATION_ACTIVATION_API_URL:-}}"
-          [[ -n "$configured" ]] || {
-            echo "Endpoint da Central não configurado. Defina OON_ACTIVATION_API_URL=https://central-ativacao.oonapps.online/api." >&2
-            exit 1
-          }
+          configured="${INPUT_ACTIVATION_API_URL:-${ORGANIZATION_ACTIVATION_API_URL:-$DEFAULT_ACTIVATION_API_URL}}"
           normalized="$(python3 - "$configured" <<'PY'
           import sys
           from urllib.parse import urlsplit, urlunsplit
@@ -162,8 +159,10 @@ jobs:
             printf -- '- Central: `%s`\n' "$normalized"
             if [[ -n "${INPUT_ACTIVATION_API_URL:-}" ]]; then
               printf -- '- Origem: `workflow input`\n'
-            else
+            elif [[ -n "${ORGANIZATION_ACTIVATION_API_URL:-}" ]]; then
               printf -- '- Origem: `organization variable`\n'
+            else
+              printf -- '- Origem: `SaaS default`\n'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 

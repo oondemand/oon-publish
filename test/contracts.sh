@@ -4,8 +4,9 @@ set -euo pipefail
 workflow=".github/workflows/request-dev.yml"
 
 test -f "$workflow"
-grep -Fq 'configured="${INPUT_ACTIVATION_API_URL:-${ORGANIZATION_ACTIVATION_API_URL:-}}"' "$workflow"
-grep -Fq '[[ -n "$configured" ]]' "$workflow"
+grep -Fq 'DEFAULT_ACTIVATION_API_URL: https://central-ativacao.oonapps.online/api' "$workflow"
+grep -Fq 'configured="${INPUT_ACTIVATION_API_URL:-${ORGANIZATION_ACTIVATION_API_URL:-$DEFAULT_ACTIVATION_API_URL}}"' "$workflow"
+grep -Fq 'Origem: `SaaS default`' "$workflow"
 grep -Fq 'allowed_hosts = {"central-ativacao.oonapps.online"}' "$workflow"
 grep -Fq 'parsed.path.rstrip("/") != "/api"' "$workflow"
 grep -Fq 'parsed.port not in (None, 443)' "$workflow"
