@@ -20,6 +20,8 @@ grep -Fq '.arquivada // false' "$workflow"
 grep -Fq '.restauracao // false' "$workflow"
 grep -Fq 'Publicação Dev inconsistente' "$workflow"
 grep -Fq 'Publicação Dev aceita:' "$workflow"
+grep -Fq '.error.details.persistenceEntity' "$workflow"
+grep -Fq 'entidade: $persistence_entity' "$workflow"
 
 if grep -R -n -E 'central-ativacao\.central\.oondemand\.online|legacy fallback|LEGACY_ACTIVATION_API_URL' \
   .github/workflows README.md; then
