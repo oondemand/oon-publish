@@ -244,7 +244,26 @@ jobs:
           fi
           release_id="$(jq -er '.releaseId | strings | select(length > 0)' "$api_response")"
           stage="$(jq -r '.etapa // "autorizada"' "$api_response")"
+          idempotent="$(jq -r '.idempotente // false' "$api_response")"
           retried="$(jq -r '.reprocessada // false' "$api_response")"
+          restoration="$(jq -r '.restauracao // false' "$api_response")"
+          archived="$(jq -r '.arquivada // false' "$api_response")"
+
+          if [[ "$archived" == "true" || "$stage" =~ ^(exclusao_solicitada|aguardando_publicacoes|limpando_infraestrutura|excluindo|falha_limpeza|excluida)$ ]]; then
+            message="A Central devolveu uma release arquivada ou pertencente ao ciclo de limpeza."
+            echo "::error title=Publicação Dev inconsistente::release=$release_id | etapa=$stage | arquivada=$archived"
+            echo "$message release=$release_id etapa=$stage arquivada=$archived" >&2
+            {
+              echo "## Falha ao solicitar publicação em Dev"
+              echo
+              echo "- App: $APP_CODE"
+              echo "- Release: $release_id"
+              echo "- Etapa: $stage"
+              echo "- Arquivada: $archived"
+              echo "- Motivo: $message"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
 
           if [[ "$stage" == falha_* || "$stage" == "cancelada" ]]; then
             message="$(jq -r '.error.message // .message // "A release permaneceu em estado de falha."' "$api_response" 2>/dev/null || true)"
@@ -253,6 +272,7 @@ jobs:
           fi
 
           echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+          echo "Publicação Dev aceita: release=$release_id etapa=$stage idempotente=$idempotent reprocessada=$retried restauracao=$restoration arquivada=$archived"
 
           {
             echo "## Publicação Dev solicitada"
@@ -260,7 +280,10 @@ jobs:
             echo "- App: \`$APP_CODE\`"
             echo "- Release: \`$release_id\`"
             echo "- Etapa: \`$stage\`"
-            echo "- Reprocessada: \`$retried\`"
+            echo "- Idempotente: $idempotent"
+            echo "- Reprocessada: $retried"
+            echo "- Restauração: $restoration"
+            echo "- Arquivada: $archived"
             echo "- Repositório: \`$GITHUB_REPOSITORY\`"
             echo "- Commit: \`$GITHUB_SHA\`"
             echo "- Capabilities: \`$(jq -c 'keys' <<<"$APP_CAPABILITIES")\`"
