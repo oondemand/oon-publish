@@ -209,12 +209,14 @@ jobs:
             code="$(jq -r '.error.code // .code // "UNKNOWN_ERROR"' "$api_response" 2>/dev/null || echo UNKNOWN_ERROR)"
             phase="$(jq -r '.error.details.phase // .details.phase // .phase // "não informada"' "$api_response" 2>/dev/null || echo "não informada")"
             upstream_status="$(jq -r '.error.details.upstreamStatus // .details.upstreamStatus // empty' "$api_response" 2>/dev/null || true)"
+            persistence_entity="$(jq -r '.error.details.persistenceEntity // .details.persistenceEntity // empty' "$api_response" 2>/dev/null || true)"
             request_id="$(jq -r '.error.details.requestId // .details.requestId // .requestId // empty' "$api_response" 2>/dev/null || true)"
 
             message="$(printf '%s' "${message:-Falha não detalhada pela API.}" | tr '\r\n' '  ' | cut -c1-500)"
             code="$(printf '%s' "${code:-UNKNOWN_ERROR}" | tr -cd '[:alnum:]_.-')"
             phase="$(printf '%s' "${phase:-não informada}" | tr '\r\n' '  ' | cut -c1-120)"
             upstream_status="$(printf '%s' "$upstream_status" | tr -cd '[:alnum:]_.-')"
+            persistence_entity="$(printf '%s' "$persistence_entity" | tr -cd '[:alnum:]_.-')"
             request_id="$(printf '%s' "$request_id" | tr -cd '[:alnum:]_.:-')"
             if [[ -z "$request_id" && -s "$api_headers" ]]; then
               request_id="$(awk 'BEGIN{IGNORECASE=1} /^x-request-id:/{gsub("\r", "", $2); print $2; exit}' "$api_headers")"
@@ -223,6 +225,7 @@ jobs:
 
             diagnostic="HTTP ${status:-sem resposta} | código: $code | fase: $phase"
             [[ -n "$upstream_status" ]] && diagnostic="$diagnostic | upstream: $upstream_status"
+            [[ -n "$persistence_entity" ]] && diagnostic="$diagnostic | entidade: $persistence_entity"
             [[ -n "$request_id" ]] && diagnostic="$diagnostic | requestId: $request_id"
 
             echo "::error title=Publicação rejeitada::$diagnostic — $message"
@@ -237,6 +240,7 @@ jobs:
               echo "- Código: \`$code\`"
               echo "- Fase: \`$phase\`"
               [[ -n "$upstream_status" ]] && echo "- Status upstream: \`$upstream_status\`"
+              [[ -n "$persistence_entity" ]] && echo "- Entidade de persistência: \`$persistence_entity\`"
               [[ -n "$request_id" ]] && echo "- Request ID: \`$request_id\`"
               echo "- Mensagem: $message"
             } >> "$GITHUB_STEP_SUMMARY"
