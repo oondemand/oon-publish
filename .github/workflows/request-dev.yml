@@ -71,8 +71,8 @@ jobs:
               deploymentMode
             } | with_entries(select(.value != null and .value != ""))' central.app.json)"
 
-            jq -e '.schemaVersion == 1 and (.capabilities | type == "array") and ((.capabilitySettings // {}) | type == "object")' central.app.json >/dev/null || {
-              echo "central.app.json inválido: schemaVersion, capabilities ou capabilitySettings." >&2
+            jq -e '.schemaVersion == 2 and (.capabilities | type == "array") and ((.capabilitySettings // {}) | type == "object")' central.app.json >/dev/null || {
+              echo "central.app.json inválido: schemaVersion 2, capabilities ou capabilitySettings." >&2
               exit 1
             }
             if jq -e '.capabilities | index("core.transactional-email") != null' central.app.json >/dev/null; then
