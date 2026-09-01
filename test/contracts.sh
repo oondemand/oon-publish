@@ -16,6 +16,8 @@ grep -Fq '.accessMode == "authenticated_users"' "$workflow"
 grep -Fq 'Arquitetura tenantless inválida' "$workflow"
 grep -Fq 'none/common/authenticated_users/rbac/singleton' README.md
 grep -Fq 'Meus Apps, Oon Workspace e Oon Docs' README.md
+grep -Fq 'PlatformCapabilityRegistration' README.md
+! grep -Fq 'credenciais do provider' README.md
 grep -Fq '.arquivada // false' "$workflow"
 grep -Fq '.restauracao // false' "$workflow"
 grep -Fq 'Publicação Dev inconsistente' "$workflow"
