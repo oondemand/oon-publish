@@ -60,7 +60,11 @@ Credenciais na URL, query string, fragmento, porta alternativa e qualquer domín
 }
 ```
 
-O workflow envia somente nomes e versões mínimas. A Central de Ativações bloqueia a publicação antes do deploy quando o ambiente não possui uma versão compatível e devolve uma mensagem para executar a reconciliação. Endpoint e credenciais do provider nunca entram no build, no repositório chamador ou nos logs deste workflow.
+O workflow envia somente nomes e versões mínimas. A Central de Ativações
+bloqueia a publicação antes do deploy quando o ambiente não possui uma
+`PlatformCapabilityRegistration` compatível e devolve uma mensagem para
+executar a reconciliação. Endpoint e credenciais da implementação técnica nunca
+entram no build, no repositório chamador ou nos logs deste workflow.
 
 `core.transactional-email` é uma capability funcional, local ao App. Ela deve ser declarada em `central.app.json`, com sua política de escopo e templates em `capabilitySettings`, e nunca em `oon.deploy.json`. O workflow valida essa declaração antes de solicitar a publicação; chaves do provedor são configuradas somente na tela operacional do próprio App.
 
