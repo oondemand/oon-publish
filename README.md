@@ -14,6 +14,7 @@ name: publish-dev
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   request:
@@ -30,7 +31,15 @@ O workflow:
 3. envia a solicitação para a Central de Ativações;
 4. não recebe kubeconfig, token do registry, credencial do MongoDB ou chave do GitHub App.
 
-A Central de Ativações valida a identidade OIDC, o App, o repositório e o commit antes de despachar o executor privado. Apps tenant-scoped também passam pelos gates de licença/entitlement. Os Apps comuns Meus Apps, Oon Workspace e Oon Docs usam o lifecycle tenantless sem licença artificial e declaram o mesmo contrato `none/common/authenticated_users/rbac/singleton`. Restrições internas, como a visibilidade de documentos, pertencem ao RBAC do próprio App.
+A Central de Ativações valida a identidade OIDC, o App, o repositório, a branch e o commit antes de despachar o executor privado. Apps tenant-scoped também passam pelos gates de licença/entitlement. Os Apps comuns Meus Apps, Oon Workspace e Oon Docs usam o lifecycle tenantless sem licença artificial e declaram o mesmo contrato `none/common/authenticated_users/rbac/singleton`. Restrições internas, como a visibilidade de documentos, pertencem ao RBAC do próprio App.
+
+### Branches de desenvolvimento
+
+O `push` automático permanece restrito à branch padrão, normalmente `main`. Para validar código antes do merge, abra **Actions → publish-dev → Run workflow**, selecione a feature branch e confirme a execução. A branch e o SHA são obtidos dos claims OIDC emitidos pelo GitHub; parâmetros enviados pelo App não escolhem a fonte.
+
+A publicação manual substitui o código do mesmo ambiente Dev do App. Ela não cria Preview, URL, namespace ou banco isolado por branch. A Central serializa as execuções para impedir duas publicações concorrentes no mesmo Dev.
+
+Uma release originada de feature branch é exclusiva de Desenvolvimento e não pode ser promovida. A promoção somente é liberada depois que o mesmo SHA for atestado pela branch padrão ou que a publicação automática da branch padrão produzir o SHA resultante do merge.
 
 ## Endpoint canônico e cutover de infraestrutura
 
