@@ -17,8 +17,8 @@ grep -Fq 'Arquitetura tenantless inválida' "$workflow"
 grep -Fq 'none/common/authenticated_users/rbac/singleton' README.md
 grep -Fq 'Meus Apps, Oon Workspace e Oon Docs' README.md
 grep -Fq 'PlatformCapabilityRegistration' README.md
-grep -Fq '.schemaVersion == 2' "$workflow"
-! grep -Fq '.schemaVersion == 1' "$workflow"
+grep -Fq '(.schemaVersion == 1 or .schemaVersion == 2)' "$workflow"
+grep -Fq 'Manifestos central.app.json v1 e v2' README.md
 ! grep -Fq 'credenciais do provider' README.md
 grep -Fq '.arquivada // false' "$workflow"
 grep -Fq '.restauracao // false' "$workflow"
