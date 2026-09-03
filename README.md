@@ -31,6 +31,8 @@ O workflow:
 3. envia a solicitação para a Central de Ativações;
 4. não recebe kubeconfig, token do registry, credencial do MongoDB ou chave do GitHub App.
 
+Manifestos central.app.json v1 e v2 são aceitos durante a migração dos Apps existentes. O contrato v2 continua recomendado para novos Apps; a compatibilidade v1 evita interromper publicações enquanto cada App atualiza o Core e o manifesto.
+
 A Central de Ativações valida a identidade OIDC, o App, o repositório, a branch e o commit antes de despachar o executor privado. Apps tenant-scoped também passam pelos gates de licença/entitlement. Os Apps comuns Meus Apps, Oon Workspace e Oon Docs usam o lifecycle tenantless sem licença artificial e declaram o mesmo contrato `none/common/authenticated_users/rbac/singleton`. Restrições internas, como a visibilidade de documentos, pertencem ao RBAC do próprio App.
 
 ### Branches de desenvolvimento
