@@ -22,7 +22,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: oon-request-dev-${{ github.repository }}-${{ github.sha }}
+  group: oon-request-dev-${{ github.repository }}-${{ inputs.command_id || github.sha }}
   cancel-in-progress: false
 
 jobs:
