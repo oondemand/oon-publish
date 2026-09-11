@@ -92,8 +92,7 @@ checkout do App, não executa build e não publica uma nova imagem.
 
 O Control Plane recusa artefatos anteriores ao contrato neutro de ambiente,
 operações concorrentes, ausência de RBAC/entitlement/licença e Produção sem o
-aceite de Homologação quando exigido. Falhas preservam o histórico e podem ser
-reconciliadas de forma idempotente pelo Meus Apps.
+aceite de Homologação quando exigido. Falhas preservam o histórico. Apps de tenants mantêm reconciliação no portal; globais seguem comandos administrativos na Central.
 
 
 ## Apps singleton tenantless e credenciais de Deployment
@@ -101,3 +100,10 @@ reconciliadas de forma idempotente pelo Meus Apps.
 Para um App global, o contexto de delivery usa `lifecycleMode=global_singleton` e uma identidade operacional composta por `deploymentId` e `deploymentToken`. O token é mascarado imediatamente pelo workflow, permanece somente no arquivo temporário protegido e é removido no cleanup. Ele nunca é enviado em URL, output ou resumo.
 
 O deploy global não executa activation code de cliente. O mesmo Deployment é reconciliado por App + ambiente em retries, promoções e rollbacks; o digest da promoção continua sendo o artefato imutável produzido em Dev. Apps tenant-scoped preservam o contrato `tenant_activation`.
+
+
+## Comandos administrativos de globais (R3/#122)
+
+Meus Apps, Oon Workspace e Oon Docs são publicados pela interface administrativa da Central Prod. O workflow recebe `command_id` por `workflow_dispatch` e repassa ao input opcional de `request-dev.yml`. Para globais, a Central exige comando persistido compatível com OIDC, app, repo, ref, SHA e operação. Write no GitHub sozinho não autoriza. Globais não publicam automaticamente no push. Apps comuns mantêm seu fluxo comercial.
+
+A autorização usa RBAC de sistema. Acesso técnico atual continua obrigatório. Contexto e callbacks vinculam um único run/attempt à release; outro attempt não consome o comando novamente. Promoções preservam digest/aceite. Meus Apps não administra publicações globais. Gate A fechado; código e CI não autorizam execução operacional.
