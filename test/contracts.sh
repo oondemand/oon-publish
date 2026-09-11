@@ -42,4 +42,4 @@ grep -Fq 'commandId: $commandId' "$workflow"
 grep -Fq 'Validar autoridade produtiva' .github/workflows/promote-environment.yml
 
 # Independent global commands for the same SHA must not replace pending runs.
-grep -Fq 'group: oon-request-dev-${{ github.repository }}-${{ inputs.command_id || github.sha }}' "$workflow"
+grep -Fq 'group: oon-request-dev-${{ github.repository }}-${{ inputs.command_id || github.sha }}-${{ inputs.technical_instance_id' "$workflow"
