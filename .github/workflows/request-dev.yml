@@ -7,6 +7,11 @@ on:
         description: Comando administrativo da Central para apps globais
         required: false
         type: string
+      technical_instance_id:
+        description: Instância comercial selecionada; a Central revalida a autorização e pode recusar o ciclo de vida
+        required: false
+        type: string
+        default: ""
       activation_api_url:
         description: Endpoint explícito da Central; se omitido, usa OON_ACTIVATION_API_URL ou o endpoint SaaS
         required: false
@@ -22,7 +27,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: oon-request-dev-${{ github.repository }}-${{ inputs.command_id || github.sha }}
+  group: oon-request-dev-${{ github.repository }}-${{ inputs.command_id || github.sha }}-${{ inputs.technical_instance_id || 'default' }}
   cancel-in-progress: false
 
 jobs:
@@ -175,6 +180,7 @@ jobs:
         shell: bash
         env:
           GLOBAL_COMMAND_ID: ${{ inputs.command_id }}
+          TECHNICAL_INSTANCE_ID: ${{ inputs.technical_instance_id }}
           APP_CODE: ${{ steps.manifest.outputs.app_code }}
           APP_ARCHITECTURE: ${{ steps.manifest.outputs.architecture }}
           APP_CAPABILITIES: ${{ steps.manifest.outputs.capabilities }}
@@ -182,6 +188,17 @@ jobs:
           ACTIVATION_API_URL: ${{ steps.endpoint.outputs.activation_api_url }}
         run: |
           set -euo pipefail
+
+          if [[ -n "$TECHNICAL_INSTANCE_ID" ]]; then
+            [[ "$TECHNICAL_INSTANCE_ID" =~ ^[a-f0-9]{24}$ ]] || {
+              echo "technical_instance_id inválido." >&2
+              exit 1
+            }
+            [[ -z "$GLOBAL_COMMAND_ID" ]] || {
+              echo "Seleção comercial não pode acompanhar um comando global." >&2
+              exit 1
+            }
+          fi
 
           audience_encoded="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$ACTIVATION_API_URL")"
           oidc_response="$RUNNER_TEMP/oon-oidc.json"
@@ -197,6 +214,9 @@ jobs:
           echo "::add-mask::$oidc_token"
 
           payload="$(jq -nc --arg commandId "$GLOBAL_COMMAND_ID" --arg appCode "$APP_CODE" --argjson architecture "$APP_ARCHITECTURE" --argjson capabilities "$APP_CAPABILITIES" --argjson functionalCapabilities "$APP_FUNCTIONAL_CAPABILITIES" '{commandId: $commandId, appCode: $appCode, architecture: $architecture, capabilities: $capabilities, functionalCapabilities: $functionalCapabilities, artifactContractVersion: 1}')"
+          if [[ -n "$TECHNICAL_INSTANCE_ID" ]]; then
+            payload="$(jq -c --arg technicalInstanceId "$TECHNICAL_INSTANCE_ID" '. + {technicalInstanceId: $technicalInstanceId}' <<<"$payload")"
+          fi
           status="$({ curl --silent --show-error \
             --connect-timeout 10 \
             --max-time 45 \
@@ -252,6 +272,15 @@ jobs:
             exit 1
           fi
           release_id="$(jq -er '.releaseId | strings | select(length > 0)' "$api_response")"
+          if [[ -n "$TECHNICAL_INSTANCE_ID" ]]; then
+            jq -e --arg expected "$TECHNICAL_INSTANCE_ID" '
+              .technicalInstanceId == $expected and
+              (.instanceUid | type == "string" and length > 0)
+            ' "$api_response" >/dev/null || {
+              echo "A Central devolveu uma identidade diferente da instância selecionada." >&2
+              exit 1
+            }
+          fi
           stage="$(jq -r '.etapa // "autorizada"' "$api_response")"
           idempotent="$(jq -r '.idempotente // false' "$api_response")"
           retried="$(jq -r '.reprocessada // false' "$api_response")"

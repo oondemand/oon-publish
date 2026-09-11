@@ -16,3 +16,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validar contratos do endpoint greenfield
         run: bash test/contracts.sh
+      - name: Validar seleção de instância sem acesso externo
+        run: python3 test/instance-selection.py

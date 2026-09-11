@@ -107,3 +107,20 @@ O deploy global não executa activation code de cliente. O mesmo Deployment é r
 Meus Apps, Oon Workspace e Oon Docs são publicados pela interface administrativa da Central Prod. O workflow recebe `command_id` por `workflow_dispatch` e repassa ao input opcional de `request-dev.yml`. Para globais, a Central exige comando persistido compatível com OIDC, app, repo, ref, SHA e operação. Write no GitHub sozinho não autoriza. Globais não publicam automaticamente no push. Apps comuns mantêm seu fluxo comercial.
 
 A autorização usa RBAC de sistema. Acesso técnico atual continua obrigatório. Contexto e callbacks vinculam um único run/attempt à release; outro attempt não consome o comando novamente. Promoções preservam digest/aceite. Meus Apps não administra publicações globais. Gate A fechado; código e CI não autorizam execução operacional.
+# R4-B: transporte de seleção comercial em revisão
+
+O workflow reutilizável `request-dev.yml` aceita o input opcional
+`technical_instance_id` (ObjectId canônico em minúsculas). Quando presente,
+o seletor é enviado à Central e separa a concorrência entre instâncias do mesmo
+repositório/commit. Não pode ser combinado com `command_id` global.
+
+O input não concede autoridade. A Central ainda retorna
+`COMMERCIAL_INSTANCE_LIFECYCLE_UNSUPPORTED`; esse recorte não habilita publicação
+comercial. Não há retry sem seleção, nem exportação de release quando a resposta
+contém outra identidade. Wrappers de apps existentes não são modificados ou
+acionados implicitamente. OonCore permanece 0.6.10.
+
+Validação isolada: `python3 test/instance-selection.py` executa o shell do workflow
+com HTTP simulado. Gate A permanece fechado; cleanup multi-instância mantém
+`CLEANUP_INSTANCE_SCOPE_UNSUPPORTED`. R4/#123 e R6/#112 em oon-docs.
+
