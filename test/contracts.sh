@@ -34,3 +34,9 @@ if grep -R -n -E 'central-ativacao\.central\.oondemand\.online|legacy fallback|L
 fi
 
 echo "Greenfield activation endpoint contracts ok"
+
+
+grep -Fq 'command_id:' "$workflow"
+grep -Fq 'GLOBAL_COMMAND_ID: ${{ inputs.command_id }}' "$workflow"
+grep -Fq 'commandId: $commandId' "$workflow"
+grep -Fq 'Validar autoridade produtiva' .github/workflows/promote-environment.yml

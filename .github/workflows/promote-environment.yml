@@ -31,6 +31,10 @@ jobs:
       id-token: write
       packages: read
     steps:
+      - name: Validar autoridade produtiva
+        env:
+          AUTHORITY_URL: ${{ inputs.activation_api_url }}
+        run: test "$AUTHORITY_URL" = 'https://central-ativacao.oonapps.online/api'
       - name: Gerar token do Oon Control Plane
         id: control-plane-token
         uses: actions/create-github-app-token@v2
@@ -142,6 +146,10 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - name: Validar autoridade produtiva
+        env:
+          AUTHORITY_URL: ${{ inputs.activation_api_url }}
+        run: test "$AUTHORITY_URL" = 'https://central-ativacao.oonapps.online/api'
       - name: Registrar falha sanitizada
         continue-on-error: true
         shell: bash
@@ -169,3 +177,4 @@ jobs:
             --header 'Content-Type: application/json' \
             --data "$payload" \
             "${ACTIVATION_API_URL%/}/integracao/publicacoes/${RELEASE_ID}/estado"
+
