@@ -128,12 +128,14 @@ class IdentityTests(unittest.TestCase):
         self.assertNotIn('user', calls[1][2]['spec'])
 
     def test_admin_non_sa_and_root_identity_stop_before_authorization(self):
-        for variant in ['root', 'admin', 'non-sa']:
+        for variant in ['root', 'admin', 'non-sa', *p.ROOTS]:
             call, calls, info, state = api_fixture()
             if variant == 'root':
                 info['username'] = f'system:serviceaccount:{p.ROOTS[0]}:root-publisher'
             elif variant == 'admin':
                 info['groups'].append('system:masters')
+            elif variant in p.ROOTS:
+                info['groups'].append(f'system:serviceaccounts:{variant}')
             else:
                 info['username'] = 'PRIVATE-EMAIL'
             report = {}

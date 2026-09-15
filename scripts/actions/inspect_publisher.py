@@ -193,7 +193,8 @@ def identity(call):
            'B4_IDENTITY_INVALID')
     match = re.fullmatch(r'system:serviceaccount:([a-z0-9-]{1,63}):([a-z0-9.-]{1,253})', username)
     public = {'source': 'SelfSubjectReview-without-impersonation', 'kind': 'service-account' if match else 'other-redacted',
-              'privilegedGroup': 'system:masters' in groups}
+              'privilegedGroup': bool(set(groups) & {'system:masters',
+                                                    *(f'system:serviceaccounts:{ns}' for ns in ROOTS)})}
     if match:
         public['subject'] = username
         public['rootIdentity'] = match[1] in ROOTS or match[2] == 'root-publisher'
