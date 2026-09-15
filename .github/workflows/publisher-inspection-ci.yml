@@ -1,0 +1,29 @@
+name: publisher-inspection-ci
+on:
+  pull_request:
+    paths:
+      - 'scripts/actions/*inspect_publisher.py'
+      - '.github/workflows/inspect-publisher-credential.yml'
+      - '.github/workflows/publisher-inspection-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/actions/*inspect_publisher.py'
+      - '.github/workflows/inspect-publisher-credential.yml'
+      - '.github/workflows/publisher-inspection-ci.yml'
+permissions:
+  contents: read
+jobs:
+  adversarial-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install parser without credentials
+        run: |
+          python3 -m venv "$RUNNER_TEMP/b4-python"
+          "$RUNNER_TEMP/b4-python/bin/pip" install --only-binary=:all: 'PyYAML==6.0.3'
+      - name: Test parser authentication authorization and real TLS boundary
+        run: '"$RUNNER_TEMP/b4-python/bin/python" scripts/actions/test_inspect_publisher.py'
