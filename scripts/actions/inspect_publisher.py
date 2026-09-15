@@ -65,7 +65,9 @@ StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, map
 def decode(value):
     demand(isinstance(value, str) and 0 < len(value) <= 131072, 'B4_KUBECONFIG_UNSUPPORTED')
     try:
-        return base64.b64decode(value, validate=True)
+        # Encoders may wrap lines; whitespace is not part of the credential.
+        # Still reject all non-alphabet data rather than using permissive decode.
+        return base64.b64decode(re.sub(r'[ \t\r\n\f\v]', '', value), validate=True)
     except Exception:
         raise Stop('B4_KUBECONFIG_UNSUPPORTED') from None
 
@@ -211,11 +213,18 @@ def queries():
               q('create', 'clusterroles', 'rbac.authorization.k8s.io'),
               q('create', 'clusterrolebindings', 'rbac.authorization.k8s.io'),
               q('impersonate', 'users'), q('delete', 'nodes'),
+              q('impersonate', 'users', name='system:admin'),
+              q('impersonate', 'groups', name='system:masters'),
+              q('impersonate', 'groups', name='system:serviceaccounts'),
+              q('impersonate', 'groups', name='system:serviceaccounts:oon-system'),
               q('get', 'secrets', namespace='oon-system', name='oon-mongo-admin'),
               q('get', 'secrets', namespace='oon-system', name='oon-root-github-app'),
               q('create', 'serviceaccounts', namespace='oon-system', subresource='token')]
     for ns in ROOTS:
-        result.extend([q('get', 'secrets', namespace=ns, name=ns + '-runtime'),
+        result.extend([q('impersonate', 'serviceaccounts', namespace=ns, name='root-publisher'),
+                       q('impersonate', 'groups', name=f'system:serviceaccounts:{ns}'),
+                       q('create', 'serviceaccounts', namespace=ns, name='root-publisher', subresource='token'),
+                       q('get', 'secrets', namespace=ns, name=ns + '-runtime'),
                        q('create', 'secrets', namespace=ns), q('create', 'pods', namespace=ns),
                        q('create', 'pods', namespace=ns, subresource='exec'),
                        q('patch', 'deployments', 'apps', namespace=ns),

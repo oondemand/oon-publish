@@ -46,6 +46,17 @@ class ParseTests(unittest.TestCase):
                 self.parse(c, {**a, field: '0' * 64})
             self.assertEqual(error.exception.code, 'B4_CLUSTER_ANCHOR_MISMATCH')
 
+    def test_wrapped_base64_matches_plain_bytes_without_accepting_invalid_data(self):
+        c, a = fixture()
+        expected = self.parse(c, a)
+        ca = c['clusters'][0]['cluster']['certificate-authority-data']
+        c['clusters'][0]['cluster']['certificate-authority-data'] = ca[:8] + '\n' + ca[8:]
+        encoded = b64(json.dumps(c).encode())
+        wrapped = '\r\n'.join(encoded[i:i+76] for i in range(0, len(encoded), 76)) + '\n'
+        self.assertEqual(p.parse_config(wrapped, a), expected)
+        with self.assertRaises(p.Stop):
+            p.parse_config(encoded + '$', a)
+
     def test_external_execution_files_impersonation_proxy_and_mixed_auth_fail(self):
         for target, field, value in [('user', 'exec', {'command': 'touch', 'args': ['/tmp/PWN']}),
                                       ('user', 'auth-provider', {'name': 'oidc'}),
@@ -111,7 +122,7 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(report['identity']['subject'], info['username'])
         self.assertEqual(report['clusterUid'], 'not-readable')
         self.assertEqual(report['status'], 'credential-inspected-delivery-not-enabled')
-        self.assertEqual(len(report['checks']), 26)
+        self.assertEqual(len(report['checks']), 39)
         self.assertEqual(sum(path == p.SSR for _, path, _ in calls), 2)
         self.assertTrue(all(method == 'GET' or path in (p.SSR, p.SAR) for method, path, _ in calls))
         self.assertNotIn('user', calls[1][2]['spec'])
@@ -142,6 +153,22 @@ class IdentityTests(unittest.TestCase):
                 p.inspect(call, report)
             self.assertEqual(error.exception.code, code)
             self.assertNotIn('SECRET', json.dumps(report))
+
+    def test_named_serviceaccount_group_or_token_grant_blocks_even_when_generic_users_is_denied(self):
+        for target in [dict(verb='impersonate', resource='serviceaccounts', namespace=p.ROOTS[0], name='root-publisher'),
+                       dict(verb='impersonate', resource='groups', name='system:masters'),
+                       dict(verb='create', resource='serviceaccounts', namespace=p.ROOTS[0], name='root-publisher', subresource='token')]:
+            call, _, _, _ = api_fixture()
+            def scoped(method, path, body=None, **kwargs):
+                if path == p.SAR:
+                    attrs = body['spec']['resourceAttributes']
+                    return {'status': {'allowed': all(attrs.get(k) == v for k, v in target.items())}}
+                return call(method, path, body, **kwargs)
+            report = {}
+            with self.assertRaises(p.Stop) as error:
+                p.inspect(scoped, report)
+            self.assertEqual(error.exception.code, 'B4_UNSAFE_SCOPE')
+            self.assertTrue(any(c['allowed'] for c in report['checks']))
 
     def test_identity_or_cluster_change_blocks_result(self):
         for variant in ('subject', 'cluster'):

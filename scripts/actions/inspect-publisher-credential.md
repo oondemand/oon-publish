@@ -47,6 +47,9 @@ system:masters ou publisher da raiz interrompem sem executar workloads. Grupos
 arbitrários e campos extra de autenticação não entram no relatório. A identidade é
 consultada novamente ao final; mudança interrompe. Cada permissão vem de
 SelfSubjectAccessReview; erro de avaliação não vira negativa.
+Inclui alvos nomeados de impersonation de usuários/grupos privilegiados e das
+ServiceAccounts root-publisher, além de emissão de token dessas contas nas três
+raízes. Grants limitados por resourceNames também precisam ser recusados.
 
 O GET do UID de kube-system é opcional. Se a credencial receber 403, o relatório
 marca `clusterUid=not-readable`; não conceder leitura de namespaces só para essa prova.
