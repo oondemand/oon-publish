@@ -108,10 +108,35 @@ jobs:
         run: |
           node executor/backend/node_modules/@oondemand/oon-core-back/bin/delivery.js state             --release "$RELEASE_ID"             --api "$ACTIVATION_API_URL"             --state promovendo             --image-digest "$IMAGE_DIGEST"
 
-      - name: Preparar identidade Kubernetes do publisher
+      - name: Selecionar credencial do alvo autorizado
+        id: delivery_identity
+        working-directory: executor
+        env:
+          RELEASE_ID: ${{ inputs.release_id }}
+          ACTIVATION_API_URL: ${{ inputs.activation_api_url }}
+        run: |
+          node scripts/actions/select-delivery-credential.js \
+            --release "$RELEASE_ID" --api "$ACTIVATION_API_URL" \
+            --context "$RUNNER_TEMP/context.json" --image-digest "$IMAGE_DIGEST"
+
+      - name: Preparar identidade Kubernetes do publisher de tenants
+        if: steps.delivery_identity.outputs.mode == 'tenant'
         env:
           PUBLISHER_KUBECONFIG_B64: ${{ secrets.PUBLISHER_KUBECONFIG_B64 }}
         run: bash executor/scripts/actions/prepare-publisher-kubeconfig.sh
+
+      - name: Instalar parser do kubeconfig de membro
+        if: steps.delivery_identity.outputs.mode == 'prepared_member'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3-yaml
+
+      - name: Autenticar credencial dedicada do membro
+        if: steps.delivery_identity.outputs.mode == 'prepared_member'
+        working-directory: executor
+        env:
+          MEMBER_KUBECONFIG_B64: ${{ secrets[steps.delivery_identity.outputs.secret] }}
+        run: /usr/bin/python3 scripts/actions/prepare_member_kubeconfig.py --identity "$RUNNER_TEMP/member-identity.json"
 
       - name: Aplicar exatamente o mesmo digest
         working-directory: executor
@@ -135,7 +160,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - if: always()
-        run: rm -f "$RUNNER_TEMP/context.json" "$RUNNER_TEMP/kubeconfig"
+        run: rm -f "$RUNNER_TEMP/context.json" "$RUNNER_TEMP/kubeconfig" "$RUNNER_TEMP/member-kubeconfig" "$RUNNER_TEMP/member-identity.json"
 
   report-failure:
     needs: promote
