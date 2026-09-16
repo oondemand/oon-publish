@@ -169,7 +169,7 @@ jobs:
             --arg etapa falha_deploy \
             --arg erroCodigo PROMOTION_PIPELINE_FAILED \
             --arg erroMensagem 'Falha ao promover o digest autorizado.' \
-            '{etapa:$etapa, erroCodigo:$erroCodigo, erroMensagem:$erroMensagem}')"
+            '{etapa:$etapa, erroCodigo:$erroCodigo, erroMensagem:$erroMensagem, preserveExistingFailure:true}')"
           curl --fail-with-body --silent --show-error \
             --retry 3 --retry-all-errors \
             --request POST \
@@ -177,4 +177,3 @@ jobs:
             --header 'Content-Type: application/json' \
             --data "$payload" \
             "${ACTIVATION_API_URL%/}/integracao/publicacoes/${RELEASE_ID}/estado"
-
