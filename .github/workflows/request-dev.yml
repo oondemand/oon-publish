@@ -91,6 +91,13 @@ jobs:
               }
               functional_capabilities="$(jq -ce '{"core.transactional-email": .capabilitySettings["core.transactional-email"]}' central.app.json)"
             fi
+            if jq -e '.capabilities | index("core.secrets") != null' central.app.json >/dev/null; then
+              jq -e '.tenancyModel == "single_tenant" and .deploymentMode == "dedicated" and .capabilitySettings["core.secrets"] == {"enabled": true}' central.app.json >/dev/null || {
+                echo "core.secrets V1 exige single_tenant dedicado e enabled=true." >&2
+                exit 1
+              }
+              functional_capabilities="$(jq -c '. + {"core.secrets": {"enabled": true}}' <<<"$functional_capabilities")"
+            fi
           fi
 
           jq -e '
@@ -109,8 +116,8 @@ jobs:
             exit 1
           }
 
-          jq -e 'has("core.transactional-email") | not' <<<"$capabilities" >/dev/null || {
-            echo "core.transactional-email é funcional e deve existir apenas no central.app.json." >&2
+          jq -e '(has("core.transactional-email") or has("core.secrets")) | not' <<<"$capabilities" >/dev/null || {
+            echo "core.transactional-email/core.secrets são funcionais e deve existir apenas no central.app.json." >&2
             exit 1
           }
 

@@ -101,3 +101,7 @@ reconciliadas de forma idempotente pelo Meus Apps.
 Para um App global, o contexto de delivery usa `lifecycleMode=global_singleton` e uma identidade operacional composta por `deploymentId` e `deploymentToken`. O token é mascarado imediatamente pelo workflow, permanece somente no arquivo temporário protegido e é removido no cleanup. Ele nunca é enviado em URL, output ou resumo.
 
 O deploy global não executa activation code de cliente. O mesmo Deployment é reconciliado por App + ambiente em retries, promoções e rollbacks; o digest da promoção continua sendo o artefato imutável produzido em Dev. Apps tenant-scoped preservam o contrato `tenant_activation`.
+
+## Segredos V1
+
+`core.secrets` é opt-in em `central.app.json`, com `capabilitySettings["core.secrets"]={"enabled":true}` e arquitetura single_tenant/dedicated. O request repassa apenas essa declaração, nunca chave/credenciais. Depende da Central com suporte e executor com SDK 0.7.6 ou superior contendo a V1. A promoção mantém a declaração, provisionando chave independente no ambiente destino.
