@@ -92,7 +92,7 @@ jobs:
           deployment_id="$(jq -r '.deploymentId // empty' "$RUNNER_TEMP/context.json")"
           deployment_token="$(jq -r '.deploymentToken // empty' "$RUNNER_TEMP/context.json")"
           test "$operation_type" = '${{ inputs.operation_type }}'
-          if [[ "$lifecycle_mode" == "global_singleton" ]]; then
+          if [[ "$lifecycle_mode" == "global_singleton" || "$lifecycle_mode" == "platform_shared" ]]; then
             test -n "$deployment_id"
             test -n "$deployment_token"
             echo "::add-mask::$deployment_token"
