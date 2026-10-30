@@ -3,6 +3,16 @@ name: request-central-dev
 on:
   workflow_call:
     inputs:
+      oon_workspace_operation:
+        description: Tentativa persistida no Workspace (correlação, não autoridade)
+        required: false
+        type: string
+        default: ""
+      oon_workspace_generation:
+        description: Geração da tentativa persistida
+        required: false
+        type: string
+        default: ""
       activation_api_url:
         description: Endpoint explícito da Central; se omitido, usa OON_ACTIVATION_API_URL ou o endpoint SaaS
         required: false
@@ -177,6 +187,8 @@ jobs:
         id: request
         shell: bash
         env:
+          WORKSPACE_OPERATION: ${{ inputs.oon_workspace_operation || github.event.inputs.oon_workspace_operation }}
+          WORKSPACE_GENERATION: ${{ inputs.oon_workspace_generation || github.event.inputs.oon_workspace_generation }}
           APP_CODE: ${{ steps.manifest.outputs.app_code }}
           APP_ARCHITECTURE: ${{ steps.manifest.outputs.architecture }}
           APP_CAPABILITIES: ${{ steps.manifest.outputs.capabilities }}
@@ -199,6 +211,13 @@ jobs:
           echo "::add-mask::$oidc_token"
 
           payload="$(jq -nc --arg appCode "$APP_CODE" --argjson architecture "$APP_ARCHITECTURE" --argjson capabilities "$APP_CAPABILITIES" --argjson functionalCapabilities "$APP_FUNCTIONAL_CAPABILITIES" '{appCode: $appCode, architecture: $architecture, capabilities: $capabilities, functionalCapabilities: $functionalCapabilities, artifactContractVersion: 1}')"
+          if [[ -n "${WORKSPACE_OPERATION:-}${WORKSPACE_GENERATION:-}" ]]; then
+            [[ "$WORKSPACE_OPERATION" =~ ^[a-f0-9]{24}$ && "$WORKSPACE_GENERATION" =~ ^[a-f0-9-]{36}$ ]] || {
+              echo "Correlação Workspace inválida." >&2
+              exit 1
+            }
+            payload="$(jq -c --arg operation "$WORKSPACE_OPERATION" --arg generation "$WORKSPACE_GENERATION" '. + {workspaceOperationId: $operation, workspaceGeneration: $generation}' <<<"$payload")"
+          fi
           status="$({ curl --silent --show-error \
             --connect-timeout 10 \
             --max-time 45 \
