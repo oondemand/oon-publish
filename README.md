@@ -102,6 +102,21 @@ Para um App global, o contexto de delivery usa `lifecycleMode=global_singleton` 
 
 O deploy global não executa activation code de cliente. O mesmo Deployment é reconciliado por App + ambiente em retries, promoções e rollbacks; o digest da promoção continua sendo o artefato imutável produzido em Dev. Apps tenant-scoped preservam o contrato `tenant_activation`.
 
+## A1/T1 — runtime common/shared
+
+O modo canônico `platform_shared` usa a mesma identidade técnica de deployment
+do caminho global, com configuração `multi_tenant/common/tenant_members/rbac/shared`.
+A Central #447 fornece contexto/credencial por App e ambiente; o SDK #213 mantém
+o tenant de dados por requisição e valida os bindings e a autoridade na Central.
+O Publisher não inventa tenant técnico, AppLicense, slot ou código de ativação de
+cliente. Promoção e rollback continuam usando o digest imutável e o aceite HML.
+
+Este complemento somente amplia a seleção do protocolo de bootstrap no workflow
+existente. Triggers, OIDC, mascaramento de segredos e gates não mudam. Os contratos
+locais são executados; o workflow não foi disparado. `hybrid` e `licensed/shared`
+não são autorizados por esse modo. A publicação do SDK e o rollout permanecem
+etapas posteriores, fora deste PR.
+
 ## Segredos V1
 
 `core.secrets` é opt-in em `central.app.json`, com `capabilitySettings["core.secrets"]={"enabled":true}` e arquitetura single_tenant/dedicated. O request repassa apenas essa declaração, nunca chave/credenciais. Depende da Central com suporte e executor com SDK 0.7.6 ou superior contendo a V1. A promoção mantém a declaração, provisionando chave independente no ambiente destino.
