@@ -120,3 +120,7 @@ etapas posteriores, fora deste PR.
 ## Segredos V1
 
 `core.secrets` é opt-in em `central.app.json`, com `capabilitySettings["core.secrets"]={"enabled":true}` e arquitetura single_tenant/dedicated. O request repassa apenas essa declaração, nunca chave/credenciais. Depende da Central com suporte e executor com SDK 0.7.6 ou superior contendo a V1. A promoção mantém a declaração, provisionando chave independente no ambiente destino.
+
+## Arquitetura #290
+
+Novos manifestos omitem `deploymentMode`. O publisher transporta `availability` e `tenancyModel` para a Central, que aplica a regra canônica do SDK e deriva o contexto técnico. Um campo legado explícito é transportado para validação; contradição e `hybrid` são recusados pela Central antes de autorizar recursos. A validação local de `core.secrets` aceita a omissão para `single_tenant`. Este workflow não decide licenciamento, capacidade ou acesso de clientes. Teste do transporte: `python3 test/secrets-contract.py`, inteiramente local, sem dispatch.
