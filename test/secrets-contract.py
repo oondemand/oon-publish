@@ -28,3 +28,17 @@ for settings, caps, tenancy, mode, valid in cases:
             emitted = dict(line.split('=', 1) for line in output.read_text().splitlines())
             assert json.loads(emitted['functional_capabilities']) == settings
 print('5 functional declaration cases passed')
+
+# Execute the exact transport step for all new architectures, without any API.
+for availability, tenancy in [('system', 'none'), ('common', 'none'), ('common', 'multi_tenant'), ('self', 'single_tenant'), ('licensed', 'single_tenant'), ('licensed', 'multi_tenant')]:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        (root / 'oon.deploy.json').write_text(json.dumps({'appCode': 'sample', 'schemaVersion': '1'}))
+        manifest = {'schemaVersion': 2, 'tenancyModel': tenancy, 'availability': availability, 'capabilities': ['core.secrets'] if availability == 'self' else [], 'capabilitySettings': {'core.secrets': {'enabled': True}} if availability == 'self' else {}}
+        (root / 'central.app.json').write_text(json.dumps(manifest))
+        output = root / 'output'
+        result = subprocess.run(['bash', '-c', script], cwd=directory, env={**os.environ, 'GITHUB_OUTPUT': str(output)}, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        architecture = json.loads(dict(line.split('=', 1) for line in output.read_text().splitlines())['architecture'])
+        assert architecture == {'availability': availability, 'tenancyModel': tenancy}
+print('6 architecture transport cases passed; canonical acceptance belongs to Central')
