@@ -102,7 +102,7 @@ jobs:
               functional_capabilities="$(jq -ce '{"core.transactional-email": .capabilitySettings["core.transactional-email"]}' central.app.json)"
             fi
             if jq -e '.capabilities | index("core.secrets") != null' central.app.json >/dev/null; then
-              jq -e '.tenancyModel == "single_tenant" and .deploymentMode == "dedicated" and .capabilitySettings["core.secrets"] == {"enabled": true}' central.app.json >/dev/null || {
+              jq -e '.tenancyModel == "single_tenant" and ((has("deploymentMode") | not) or .deploymentMode == "dedicated") and .capabilitySettings["core.secrets"] == {"enabled": true}' central.app.json >/dev/null || {
                 echo "core.secrets V1 exige single_tenant dedicado e enabled=true." >&2
                 exit 1
               }
@@ -110,19 +110,10 @@ jobs:
             fi
           fi
 
-          jq -e '
-            if .tenancyModel == "none" then
-              .availability == "common" and
-               .accessMode == "authenticated_users" and
-              .authorizationMode == "rbac" and
-              .deploymentMode == "singleton"
-            elif .accessMode == "authenticated_users" or .deploymentMode == "singleton" then
-              false
-            else
-              true
-            end
-          ' <<<"$architecture" >/dev/null || {
-            echo "Arquitetura tenantless inválida: use none/common/authenticated_users/rbac/singleton." >&2
+          # The Central validates the canonical SDK architecture matrix. Transport
+          # optional legacy deployment unchanged; never infer another authority.
+          jq -e 'to_entries | all(.value | type == "string")' <<<"$architecture" >/dev/null || {
+            echo "Dimensões arquiteturais devem ser strings." >&2
             exit 1
           }
 

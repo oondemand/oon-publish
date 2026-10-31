@@ -12,8 +12,6 @@ grep -Fq 'parsed.path.rstrip("/") != "/api"' "$workflow"
 grep -Fq 'parsed.port not in (None, 443)' "$workflow"
 grep -Fq 'parsed.username or parsed.password or parsed.query or parsed.fragment' "$workflow"
 grep -Fq 'OON_ACTIVATION_API_URL=https://central-ativacao.oonapps.online/api' README.md
-grep -Fq '.accessMode == "authenticated_users"' "$workflow"
-grep -Fq 'Arquitetura tenantless inválida' "$workflow"
 grep -Fq 'none/common/authenticated_users/rbac/singleton' README.md
 grep -Fq 'Meus Apps, Oon Workspace e Oon Docs' README.md
 grep -Fq 'PlatformCapabilityRegistration' README.md
