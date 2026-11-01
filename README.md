@@ -37,11 +37,13 @@ A Central de Ativações valida a identidade OIDC, o App, o repositório, a bran
 
 ### Branches de desenvolvimento
 
-O `push` automático permanece restrito à branch padrão, normalmente `main`. Para validar código antes do merge, abra **Actions → publish-dev → Run workflow**, selecione a feature branch e confirme a execução. A branch e o SHA são obtidos dos claims OIDC emitidos pelo GitHub; parâmetros enviados pelo App não escolhem a fonte.
+A Central aceita o evento `push` somente da branch padrão, normalmente `main`. Publicar no push é uma escolha de cada repositório: o job pode exigir dispatch explícito com `if: github.event_name == 'workflow_dispatch'`, e então o push fica `skipped` e não publica. Os Apps comuns Meus Apps, Oon Workspace e Oon Docs publicam em Dev somente por dispatch explícito, e os repositórios criados pelo fluxo atual do Workspace são gerados sem gatilho `push`. O exemplo acima mantém o push para Apps que o habilitam.
+
+Para validar código antes do merge, abra **Actions → publish-dev → Run workflow**, selecione a feature branch e confirme a execução. A branch e o SHA são obtidos dos claims OIDC emitidos pelo GitHub; parâmetros enviados pelo App não escolhem a fonte.
 
 A publicação manual substitui o código do mesmo ambiente Dev do App. Ela não cria Preview, URL, namespace ou banco isolado por branch. A Central serializa as execuções para impedir duas publicações concorrentes no mesmo Dev.
 
-Uma release originada de feature branch é exclusiva de Desenvolvimento e não pode ser promovida. A promoção somente é liberada depois que o mesmo SHA for atestado pela branch padrão ou que a publicação automática da branch padrão produzir o SHA resultante do merge.
+Uma release originada de feature branch é exclusiva de Desenvolvimento e não pode ser promovida. A promoção somente é liberada depois que o mesmo SHA for atestado pela branch padrão ou que uma publicação da branch padrão (por push, quando o repositório o habilita, ou por dispatch) produzir o SHA resultante do merge.
 
 ## Endpoint canônico e cutover de infraestrutura
 
