@@ -1,4 +1,5 @@
 name: promote-environment
+run-name: promote-environment ${{ inputs.operation_type }} ${{ inputs.release_id }}
 
 on:
   workflow_dispatch:
