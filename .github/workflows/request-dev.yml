@@ -145,7 +145,10 @@ jobs:
 
           raw = sys.argv[1].strip()
           parsed = urlsplit(raw)
-          allowed_hosts = {"central-ativacao.oonapps.online"}
+          # Produção (padrão SaaS) e a Central de Desenvolvimento, que publica o
+          # Dev dos Apps globais com banco próprio. A Central de Homologação é
+          # passiva e nunca recebe solicitações de publicação.
+          allowed_hosts = {"central-ativacao.oonapps.online", "central-ativacao-dev.oonapps.online"}
           if parsed.scheme != "https":
               raise SystemExit("OON_ACTIVATION_API_URL deve usar HTTPS.")
           if parsed.hostname not in allowed_hosts:

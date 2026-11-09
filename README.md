@@ -59,7 +59,9 @@ O endpoint deve usar HTTPS, terminar em `/api` e apontar exatamente para o hostn
 OON_ACTIVATION_API_URL=https://central-ativacao.oonapps.online/api
 ```
 
-Credenciais na URL, query string, fragmento, porta alternativa e qualquer domínio legado são recusados. Inputs e variáveis organizacionais também devem apontar para `https://central-ativacao.oonapps.online/api`; outros hostnames são recusados.
+Credenciais na URL, query string, fragmento, porta alternativa e qualquer domínio legado são recusados. Inputs e variáveis organizacionais devem apontar para `https://central-ativacao.oonapps.online/api` ou, no caso dos Apps globais (Meus Apps, Oon Workspace e Oon Docs), para a Central de Desenvolvimento `https://central-ativacao-dev.oonapps.online/api`; outros hostnames são recusados.
+
+A Central de Desenvolvimento tem banco próprio e é dona do ambiente Dev dos Apps globais; a Central de Homologação usa o banco de produção em modo passivo e não aceita solicitações de publicação (ver `docs/central-environments.md` na central-ativacao).
 
 ## Capabilities obrigatórias
 
