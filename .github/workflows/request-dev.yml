@@ -234,6 +234,10 @@ jobs:
             upstream_status="$(jq -r '.error.details.upstreamStatus // .details.upstreamStatus // empty' "$api_response" 2>/dev/null || true)"
             persistence_entity="$(jq -r '.error.details.persistenceEntity // .details.persistenceEntity // empty' "$api_response" 2>/dev/null || true)"
             request_id="$(jq -r '.error.details.requestId // .details.requestId // .requestId // empty' "$api_response" 2>/dev/null || true)"
+            # Publicação que prende o App (DEV_PUBLICATION_IN_PROGRESS): release, etapa e revisão.
+            blocking_release="$(jq -r '.error.details.releaseId // .details.releaseId // empty' "$api_response" 2>/dev/null || true)"
+            blocking_state="$(jq -r '.error.details.state // .details.state // empty' "$api_response" 2>/dev/null || true)"
+            blocking_review="$(jq -r '.error.details.reviewStatus // .details.reviewStatus // empty' "$api_response" 2>/dev/null || true)"
 
             message="$(printf '%s' "${message:-Falha não detalhada pela API.}" | tr '\r\n' '  ' | cut -c1-500)"
             code="$(printf '%s' "${code:-UNKNOWN_ERROR}" | tr -cd '[:alnum:]_.-')"
@@ -241,6 +245,9 @@ jobs:
             upstream_status="$(printf '%s' "$upstream_status" | tr -cd '[:alnum:]_.-')"
             persistence_entity="$(printf '%s' "$persistence_entity" | tr -cd '[:alnum:]_.-')"
             request_id="$(printf '%s' "$request_id" | tr -cd '[:alnum:]_.:-')"
+            blocking_release="$(printf '%s' "$blocking_release" | tr -cd '[:alnum:]_.-' | cut -c1-120)"
+            blocking_state="$(printf '%s' "$blocking_state" | tr -cd '[:alnum:]_.-' | cut -c1-60)"
+            blocking_review="$(printf '%s' "$blocking_review" | tr -cd '[:alnum:]_.-' | cut -c1-60)"
             if [[ -z "$request_id" && -s "$api_headers" ]]; then
               request_id="$(awk 'BEGIN{IGNORECASE=1} /^x-request-id:/{gsub("\r", "", $2); print $2; exit}' "$api_headers")"
               request_id="$(printf '%s' "$request_id" | tr -cd '[:alnum:]_.:-')"
@@ -250,6 +257,9 @@ jobs:
             [[ -n "$upstream_status" ]] && diagnostic="$diagnostic | upstream: $upstream_status"
             [[ -n "$persistence_entity" ]] && diagnostic="$diagnostic | entidade: $persistence_entity"
             [[ -n "$request_id" ]] && diagnostic="$diagnostic | requestId: $request_id"
+            [[ -n "$blocking_release" ]] && diagnostic="$diagnostic | release em curso: $blocking_release"
+            [[ -n "$blocking_state" ]] && diagnostic="$diagnostic | etapa: $blocking_state"
+            [[ -n "$blocking_review" ]] && diagnostic="$diagnostic | revisão: $blocking_review"
 
             echo "::error title=Publicação rejeitada::$diagnostic — $message"
             echo "Solicitação rejeitada pela Central de Ativações: $diagnostic — $message" >&2
@@ -265,6 +275,7 @@ jobs:
               [[ -n "$upstream_status" ]] && echo "- Status upstream: \`$upstream_status\`"
               [[ -n "$persistence_entity" ]] && echo "- Entidade de persistência: \`$persistence_entity\`"
               [[ -n "$request_id" ]] && echo "- Request ID: \`$request_id\`"
+              [[ -n "$blocking_release" ]] && echo "- Publicação em curso: \`$blocking_release\` (etapa \`${blocking_state:-?}\`, revisão \`${blocking_review:-?}\`)"
               echo "- Mensagem: $message"
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1
