@@ -11,7 +11,12 @@ script = '\n'.join(line[10:] for line in step.split('        run: |\n', 1)[1].sp
 email = {'enabled': True, 'scopePolicy': 'app_only', 'templates': [{'code': 'sample', 'definition': 'emails/sample.json'}]}
 cases = [
     ({'core.secrets': {'enabled': True}}, ['core.secrets'], 'single_tenant', 'dedicated', True),
-    ({'core.secrets': {'enabled': True}}, ['core.secrets'], 'multi_tenant', 'shared', False),
+    ({'core.secrets': {'enabled': True}}, ['core.secrets'], 'multi_tenant', 'shared', True),
+    ({'core.secrets': {'enabled': True}}, ['core.secrets'], 'multi_tenant', None, True),
+    ({'core.secrets': {'enabled': True}}, ['core.secrets'], 'single_tenant', None, True),
+    ({'core.secrets': {'enabled': True}}, ['core.secrets'], 'multi_tenant', 'dedicated', False),
+    ({'core.secrets': {'enabled': True}}, ['core.secrets'], 'single_tenant', 'shared', False),
+    ({'core.secrets': {'enabled': True}}, ['core.secrets'], 'none', 'singleton', False),
     ({'core.secrets': {'enabled': True, 'key': 'forbidden'}}, ['core.secrets'], 'single_tenant', 'dedicated', False),
     ({}, [], 'single_tenant', 'dedicated', True),
     ({'core.secrets': {'enabled': True}, 'core.transactional-email': email}, ['core.secrets', 'core.transactional-email'], 'single_tenant', 'dedicated', True),
@@ -27,7 +32,7 @@ for settings, caps, tenancy, mode, valid in cases:
         if valid:
             emitted = dict(line.split('=', 1) for line in output.read_text().splitlines())
             assert json.loads(emitted['functional_capabilities']) == settings
-print('5 functional declaration cases passed')
+print(f'{len(cases)} functional declaration cases passed')
 
 # Execute the exact transport step for all new architectures, without any API.
 for availability, tenancy in [('system', 'none'), ('common', 'none'), ('common', 'multi_tenant'), ('self', 'single_tenant'), ('licensed', 'single_tenant'), ('licensed', 'multi_tenant')]:
